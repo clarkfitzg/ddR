@@ -19,7 +19,6 @@ the open source HP Distributed R.  We plan to add support for
 SparkR. This package is an outcome of feedback and collaboration
 across different companies and R-core members!
 
-
 'ddR' is an API, and includes a default execution engine, to express
 and execute distributed applications. Users can declare distributed
 objects (i.e., `dlist`, `dframe`, `darray`), and execute parallel
@@ -233,8 +232,8 @@ Now you can try the different list examples which were used with the 'parallel' 
 
 You can help us in different ways:
 
-1. Reporting [issues](https://github.com/vertica/ddR/issues).
-2. Contributing code and sending a [Pull Request](https://github.com/vertica/ddR/pulls).
+1. Reporting issues.
+2. Contributing code and sending a pull request.
 
 In order to contribute the code base of this project, you must agree to the Developer Certificate of Origin (DCO) 1.1 for this project under GPLv2+:
 
