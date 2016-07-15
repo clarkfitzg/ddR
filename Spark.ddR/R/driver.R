@@ -29,29 +29,29 @@ zipRDD <- SparkR:::zipRDD
 numPartitions <- SparkR:::numPartitions
 
 # Create distributedR ddRDriver
-setClass("SparkRddR", contains = "ddRDriver")
+setClass("SparkddR", contains = "ddRDriver")
 
 #' @export 
 # Exported Driver
-SparkR <- new("SparkRddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD", DArrayClass = "ddR_RDD", 
-    backendName = "SparkR")
+Spark <- new("SparkddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD", DArrayClass = "ddR_RDD", 
+    backendName = "Spark")
 
 #' @export
-setMethod("init", "SparkRddR", function(x, ...) {
-    message("Backend switched to SparkR. Initializing the Spark context...")
+setMethod("init", "SparkddR", function(x, ...) {
+    message("Backend switched to Spark. Initializing the Spark context...")
     Spark.ddR.env$context <- sparkR.init()
     ## TODO(etduwx): return the actual number of executors
     return(1)
 })
 
 #' @export
-setMethod("shutdown", "SparkRddR", function(x) {
-    message("Switching out of using SparkR. Shutting it down...")
+setMethod("shutdown", "SparkddR", function(x) {
+    message("Switching out of using Spark. Shutting it down...")
     sparkR.stop()
 })
 
 #' @export
-setMethod("do_dmapply", signature(driver = "SparkRddR", func = "function"), function(driver, 
+setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), function(driver, 
     func, ..., MoreArgs = list(), output.type = c("dlist", "dframe", "darray", "sparse_darray"), 
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")) {
     
@@ -224,7 +224,7 @@ setMethod("do_dmapply", signature(driver = "SparkRddR", func = "function"), func
     }
     
     # return(compound.RDD) Step 4: Insert wrapper functions, list-of-parts conversion
-    # code Let SparkR serialize this closure, as well as MoreArgs
+    # code Let Spark serialize this closure, as well as MoreArgs
     .funct <- match.fun(func)
     
     nms <- names(all.args)
