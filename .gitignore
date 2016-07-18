@@ -4,7 +4,6 @@
 *.so
 *.dll
 *.rds
-/dds/GPATH
-/dds/GRTAGS
-/dds/GTAGS
-/dds/R/.Rhistory
+
+# Spark log files
+/Spark.ddR/tests/testthat/*.log*
