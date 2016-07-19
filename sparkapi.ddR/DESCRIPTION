@@ -12,7 +12,4 @@ Imports:
     sparkapi
 License: GPL (>= 2) | file LICENSE
 LazyData: true
-Collate:
-    'driver.R'
-    'object.R'
 RoxygenNote: 5.0.1
