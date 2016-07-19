@@ -18,8 +18,8 @@ setClass("SparkddR", contains = "ddRDriver")
 
 #' @export 
 # Exported Driver
-Spark <- new("SparkddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD", DArrayClass = "ddR_RDD", 
-    backendName = "Spark")
+Spark <- new("SparkddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD",
+    DArrayClass = "ddR_RDD", backendName = "Spark")
 
 #' @export
 setMethod("init", "SparkddR", function(x, ...) {
@@ -54,7 +54,7 @@ setMethod("do_dmapply",
 
     ## Last step: Create new ddR_RDD object
     
-    new("ddR_RDD", RDD = output.RDD, nparts = nparts, psize = psizes, dim = dims, 
-        partitions = 1:prod(nparts))
+    #new("ddR_RDD", RDD = output.RDD, nparts = nparts,
+        #psize = psizes, dim = dims, partitions = 1:prod(nparts))
 
 })

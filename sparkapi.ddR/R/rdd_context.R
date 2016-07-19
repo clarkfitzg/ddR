@@ -25,6 +25,8 @@
 #' in the list are split into \code{numSlices} slices and distributed to nodes
 #' in the cluster.
 #'
+#' @export
+#'
 #' @param sc SparkContext to use
 #' @param coll collection to parallelize
 #' @param numSlices number of partitions to create in the RDD
@@ -63,8 +65,7 @@ spark_parallelize <- function(sc, coll, numSlices = 1) {
   jrdd <- invoke_static(sc,
                         "org.apache.spark.api.r.RRDD",
                         "createRDDFromArray",
-                        # TODO: will these be public in sparkapi?
-                        sparkapi:::java_context(sc),
+                        java_context(sc),
                         serializedSlices)
   
   spark_rdd_init(jrdd, "byte")

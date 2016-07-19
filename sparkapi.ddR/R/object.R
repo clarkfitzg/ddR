@@ -13,8 +13,10 @@
 #' @include driver.R
 
 # Create the ddR_RDD Object
-setClass("ddR_RDD", contains = "DObject", slots = list(RDD = "RDD", partitions = "numeric"), 
-    prototype = prototype(nparts = c(1L, 1L), psize = matrix(1, 1), dim = c(1L, 1L)))
+setClass("ddR_RDD", contains = "DObject",
+    slots = list(RDD = "RDD", partitions = "numeric"), 
+    prototype = prototype(nparts = c(1L, 1L), psize = matrix(1, 1),
+                          dim = c(1L, 1L)))
 
 setMethod("initialize", "ddR_RDD", function(.Object, ...) {
     .Object <- callNextMethod(.Object, ...)

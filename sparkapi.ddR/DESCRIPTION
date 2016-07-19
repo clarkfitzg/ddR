@@ -13,3 +13,9 @@ Imports:
 License: GPL (>= 2) | file LICENSE
 LazyData: true
 RoxygenNote: 5.0.1
+Collate:
+    'driver.R'
+    'object.R'
+    'rdd.R'
+    'rdd_context.R'
+    'rdd_utils.R'
