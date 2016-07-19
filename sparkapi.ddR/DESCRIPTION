@@ -1,7 +1,7 @@
 Package: sparkapi.ddR
 Title: A ddR Driver Package for Spark
 Version: 0.0.1
-Author: Clark Fitzgerald
+Author: Clark Fitzgerald, Edward Ma
 Description: An in-progress barebones R package to support the ddR API with
     Spark as the backend.
 Depends:
