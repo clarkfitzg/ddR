@@ -169,8 +169,6 @@ getJRDD.spark_rdd_pipelined <- function(rdd, serializedMode = "byte") {
 #' @description
 #' \code{collect} returns a list that contains all of the elements in this RDD.
 #'
-#' @export
-#'
 #' @param x The RDD to collect
 #' @param ... Other optional arguments to collect
 #' @param flatten FALSE if the list should not flattened
@@ -187,8 +185,6 @@ spark_collect <- function(x, flatten = TRUE) {
 #' This function creates a new RDD by applying the given transformation to all
 #' elements of the given RDD
 #'
-#' @export
-#'
 #' @param X The RDD to apply the transformation.
 #' @param FUN the transformation to apply on each element
 #' @return a new RDD created by the transformation.
@@ -196,7 +192,6 @@ spark_lapply <- function(X, FUN) {
   UseMethod("spark_lapply")
 }
 
-#' @export
 spark_lapply.spark_rdd <- function(X, FUN) {
   func <- function(partIndex, part) {
     lapply(part, FUN)

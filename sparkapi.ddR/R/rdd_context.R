@@ -25,8 +25,6 @@
 #' in the list are split into \code{numSlices} slices and distributed to nodes
 #' in the cluster.
 #'
-#' @export
-#'
 #' @param sc SparkContext to use
 #' @param coll collection to parallelize
 #' @param numSlices number of partitions to create in the RDD
