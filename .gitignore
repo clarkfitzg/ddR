@@ -6,4 +6,4 @@
 *.rds
 
 # Spark log files
-/Spark.ddR/tests/testthat/*.log*
+*.log*
