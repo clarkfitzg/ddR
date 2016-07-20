@@ -31,7 +31,7 @@
 #' @param coll collection to parallelize
 #' @param numSlices number of partitions to create in the RDD
 #' @return an RDD created from this collection
-spark_parallelize <- function(sc, coll, numSlices = 1) {
+parallelize <- function(sc, coll, numSlices = 1) {
   # TODO: bound/safeguard numSlices
   # TODO: unit tests for if the split works for all primitives
   # TODO: support matrix, data frame, etc
@@ -65,9 +65,10 @@ spark_parallelize <- function(sc, coll, numSlices = 1) {
   jrdd <- invoke_static(sc,
                         "org.apache.spark.api.r.RRDD",
                         "createRDDFromArray",
-                        java_context(sc),
+                        # TODO (Clark) will this be made public?
+                        sparkapi:::java_context(sc),
                         serializedSlices)
   
-  spark_rdd_init(jrdd, "byte")
+  new("RDD", jrdd)
 }
 
