@@ -9,8 +9,8 @@ library(sparkapi)
 # This is all I want spark to do:
 ############################################################
 x = list(1:10, letters)
-func = function(x) x[1:5]
-fx = lapply(x, func)
+FUN = function(x) x[1:5]
+fx = lapply(x, FUN)
 ############################################################
 
 
@@ -21,17 +21,27 @@ sc <- start_shell(master = "local")
 
 # Original serialized data as an RRDD, which is an RDD capable of creating
 # R processes
-rdd <- invoke_static(sc,
+xrdd <- invoke_static(sc,
                       "org.apache.spark.api.r.RRDD",
                       "createRDDFromArray",
-                      # TODO (Clark) will this be made public?
-                      sparkapi:::java_context(sc),
+                      java_context(sc),
                       serial_parts)
 
 # This works and gives a SeqWrapper
 #collected <- invoke(rdd, "collect")
 #convertJListToRList(collected, flatten=TRUE)
 #convertJListToRList(collected, flatten=FALSE)
+
+# The function should be in a particular form. I don't see any documentation
+# for this.
+#cleanfunc = cleanClosure(func)
+# This gets us cleanClosure and convertJListToRList
+source('R/rdd_utils.R')
+
+FUN_withapply <- function(partIndex, part) {
+  lapply(part, FUN)
+}
+FUN_clean = cleanClosure(FUN_withapply)
 
 # Not exactly sure why this is necessary
 # invoke(rdd, "rdd"),
@@ -44,20 +54,19 @@ packageNamesArr <- serialize(NULL, NULL)
 broadcastArr <- list()
 
 # Now apply the function
-frdd <- invoke_new(sc,
-                     "org.apache.spark.api.r.RRDD",  # A new instance of this class
-                     invoke(rdd, "rdd"),  # Converts to ParallelCollectionRDD
-                     serialize(func, NULL),
-                     "byte",  # name of serializer / deserializer
-                     "byte",  # name of serializer / deserializer
-                     packageNamesArr,  
-                     broadcastArr,
-                     invoke(rdd, "classTag")
+fxrdd <- invoke_new(sc,
+                   "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                   invoke(xrdd, "rdd"),  # Converts to ParallelCollectionRDD
+                   serialize(FUN_clean, NULL),
+                   "byte",  # name of serializer / deserializer
+                   "byte",  # name of serializer / deserializer
+                   packageNamesArr,  
+                   broadcastArr,
+                   invoke(xrdd, "classTag")
                    )
 
-# Think I may be missing an invoke_new
-#frdd2 <- invoke(frdd, "asJavaRDD")
+fxrdd2 <- invoke(fxrdd, "asJavaRDD")
 
-#frdd2 <- invoke(frdd, "asJavaRDD")
+collected <- invoke(fxrdd2, "collect")
 
-#collected <- invoke(frdd2, "collect")
+final = convertJListToRList(collected, flatten=TRUE)
