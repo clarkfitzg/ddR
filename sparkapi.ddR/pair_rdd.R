@@ -28,6 +28,10 @@ rdd <- invoke_static(sc,
                       sparkapi:::java_context(sc),
                       serial_parts)
 
+# This works and gives a SeqWrapper
+#collected <- invoke(rdd, "collect")
+#convertJListToRList(collected, flatten=TRUE)
+#convertJListToRList(collected, flatten=FALSE)
 
 # Not exactly sure why this is necessary
 # invoke(rdd, "rdd"),
@@ -35,7 +39,8 @@ rdd <- invoke_static(sc,
 # Don't know what this is
 # invoke(rdd, "classTag")
 
-packageNamesArr <- serialize("base", NULL)
+# This works when it's NULL
+packageNamesArr <- serialize(NULL, NULL)
 broadcastArr <- list()
 
 # Now apply the function
@@ -50,6 +55,9 @@ frdd <- invoke_new(sc,
                      invoke(rdd, "classTag")
                    )
 
-frdd2 <- invoke(frdd, "asJavaRDD")
+# Think I may be missing an invoke_new
+#frdd2 <- invoke(frdd, "asJavaRDD")
 
-collected <- invoke(frdd2, "collect")
+#frdd2 <- invoke(frdd, "asJavaRDD")
+
+#collected <- invoke(frdd2, "collect")
