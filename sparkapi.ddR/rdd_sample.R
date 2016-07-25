@@ -2,9 +2,10 @@
 
 library(sparkapi)
 
-source('R/rdd.R')
-source('R/context.R')
-source('R/utils.R')
+#source('R/rdd.R')
+#source('R/context.R')
+#source('R/utils.R')
+source('R/minimal.R')
 
 sc <- start_shell(master = "local")
 
@@ -13,7 +14,7 @@ rdd <- parallelize(sc, 1:10, 2L)
 newrdd <- lapply(rdd, function(x) x + 1000)
 
 # Come back to this point:
-spark_collect(newrdd)
+local_rdd = spark_collect(newrdd)
 
 
 weird_thing <- list(list(mean, sum, max), 1:10)
