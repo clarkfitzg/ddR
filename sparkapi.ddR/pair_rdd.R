@@ -115,15 +115,21 @@ invoke(backwards_zipped, "first")
 # zipped = invoke(backwards_zipped, "map", "_.swap")
 # zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
 
-# invoke_new(sc, "java.math.BigInteger", "1000000000")
+bigint = invoke_new(sc, "java.math.BigInteger", "1000000000")
 
 index = invoke_new(sc, "java.util.ArrayList")
 invoke(index, "add", 1L)
 invoke(index, "add", 2L)
 
+# This works, which means I can pass in arguments
+#invoke(index, "add", bigint)
+
+# Maybe this fails since it needs to be a scala collection
+# index_rdd = invoke(sc$spark_context, "parallelize", index)
+
 #index = invoke_static(sc, "Arrays", "asList", 1, 2, 3)
 
-#index_rdd = invoke(sc, "parallelize", index)
+
 
 #zipped = invoke(fxrdd, "zip", index)
 
