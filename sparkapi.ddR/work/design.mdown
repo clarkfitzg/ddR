@@ -40,6 +40,10 @@ With this lower level approach we can store the distributed object directly
 in a [Pair
 RDD](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.api.java.JavaPairRDD)
 
+Having direct access us to the underlying RDD allows operations like
+`do_collect(x, parts)`. Existing SparkR code with RDD's did not allow
+specifying the `parts`.
+
 __Pros__
 
 - Pair RDD seems like a natural container for this
@@ -124,6 +128,3 @@ __init__ Called when the backend driver is initialized.
 __shutdown__ Called when the backend driver is shutdown.
 
 __do_dmapply__ Backend-specific dmapply logic.
-
-
-
