@@ -3,6 +3,8 @@
 # We basically need to do two things:
 # 1) [ Retrieve elements 
 # 2) Map R functions onto binary data
+#
+# Also create new transformed datasets
 
 library(sparkapi)
 
@@ -37,7 +39,7 @@ xrdd <- invoke_static(sc,
 # for this.
 #cleanfunc = cleanClosure(func)
 # This gets us cleanClosure and convertJListToRList
-source('R/rdd_utils.R')
+source('~/dev/sparkapi/samples/sparkrdd-sample/R/rdd_utils.R')
 
 FUN_withapply <- function(partIndex, part) {
   lapply(part, FUN)
@@ -67,22 +69,65 @@ fxrdd <- invoke_new(sc,
                    )
 
 fxrdd2 <- invoke(fxrdd, "asJavaRDD")
-
 collected <- invoke(fxrdd2, "collect")
 
+# It's possible here to grab the first element. So why do we need the
+# previous two steps converting to JavaRDD and collecting?
+first = invoke(fxrdd, "first")
+unserialize(first)
+
+# SparkR seems to be relying on this RDD maintaining the same order here.
 final = convertJListToRList(collected, flatten=TRUE)
 
 # Now for part 1) How to retreive elements? x[i]
 
+# The PairwiseRRDD seems like it may be useful, but I don't think it maps
+# functions to data.
+#
+# Looked at the implementation for R's PairRDD- seems inefficient.
+# For a key lookup you have to evaluate _everything_ and get the key from
+# R. A different approach is to keep a lookup table in local R session
+# mapping keys to integers, and then use the integers to look up the
+# appropriate values
+
+# Expect 2
+invoke(fxrdd, "count")
+
+# class org.apache.spark.rdd.ZippedWithIndexRDD
+# This doesn't help at all because it zips with the index as the value, so
+# I can't use it to look things up.
+backwards_zipped = invoke(fxrdd, "zipWithIndex")
+
+# The first key value pair
+z1 = invoke(backwards_zipped, "first")
+
+invoke(z1, "_2")
+invoke(z1, "_1")
+
+invoke(backwards_zipped, "first")
+
+invoke(backwards_zipped, "first")
+
 # Following this
 # http://stackoverflow.com/questions/26828815/how-to-get-element-by-index-in-spark-rdd-java
-#backwards_zipped = invoke(fxrdd, "zipWithIndex")
 
-#zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
+# Neither work
+# zipped = invoke(backwards_zipped, "map", "_.swap")
+# zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
 
-#invoke_new(sc, "java.math.BigInteger", "1000000000")
+# invoke_new(sc, "java.math.BigInteger", "1000000000")
 
-#invoke_new(sc, "scala.collection.immutable.Range.Inclusive", 
+index = invoke_new(sc, "java.util.ArrayList")
+invoke(index, "add", 1L)
+invoke(index, "add", 2L)
+
+#index = invoke_static(sc, "Arrays", "asList", 1, 2, 3)
+
+#index_rdd = invoke(sc, "parallelize", index)
+
+#zipped = invoke(fxrdd, "zip", index)
+
+#invoke_new(sc, "scala.collection.immutable.Range.Inclusive", 0, 10)
 
 #invoke_static(sc, "IntStream", "rangeClosed", 1, 10)
 
