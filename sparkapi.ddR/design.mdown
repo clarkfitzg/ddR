@@ -43,7 +43,8 @@ RDD](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.a
 __Pros__
 
 - Pair RDD seems like a natural container for this
-- Low level access into any general methods we may need for repartitioning,
+- Interacting directly with Spark R API layer
+- Low level access into any general methods on the RDD we may need for repartitioning,
   etc.
 
 __Cons__

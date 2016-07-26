@@ -68,8 +68,8 @@ fxrdd <- invoke_new(sc,
                    invoke(xrdd, "classTag")
                    )
 
-fxrdd2 <- invoke(fxrdd, "asJavaRDD")
-collected <- invoke(fxrdd2, "collect")
+fxrdd_java <- invoke(fxrdd, "asJavaRDD")
+collected <- invoke(fxrdd_java, "collect")
 
 # It's possible here to grab the first element. So why do we need the
 # previous two steps converting to JavaRDD and collecting?
@@ -106,14 +106,14 @@ invoke(z1, "_1")
 
 invoke(backwards_zipped, "first")
 
-invoke(backwards_zipped, "first")
-
 # Following this
 # http://stackoverflow.com/questions/26828815/how-to-get-element-by-index-in-spark-rdd-java
 
 # Neither work
 # zipped = invoke(backwards_zipped, "map", "_.swap")
 # zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
+
+(0 to 100).toList
 
 bigint = invoke_new(sc, "java.math.BigInteger", "100000000")
 
@@ -127,17 +127,32 @@ invoke(index, "add", 2L)
 # Maybe this fails since it needs to be a scala collection
 # index_rdd = invoke(sc$spark_context, "parallelize", index)
 
-#index = invoke_static(sc, "Arrays", "asList", 1, 2, 3)
+########################################
+# Let's try going from the Java RDD
 
-# Can I use Scala?
-bigint_scala = invoke_new(sc, "scala.math.ScalaNumber", "7")
+# Gives (data, integer) pairs
+javazip_backwards = invoke(fxrdd_java, "zipWithIndex")
 
+# This is now an RDD of integers
+index = invoke(javazip_backwards, "values")
 
-#zipped = invoke(fxrdd, "zip", index)
+# The pairRDD of (integer, data) 
+javazip = invoke(index, "zip", fxrdd_java)
 
-#invoke_new(sc, "scala.collection.immutable.Range.Inclusive", 0, 10)
+# produces a Scala tuple
+jz1 = invoke(javazip, "first")
+# Wonderful- no longer backwards
+invoke(jz1, "_2")
 
-#invoke_static(sc, "IntStream", "rangeClosed", 1, 10)
+# Produces a Scala sequence
+jz1_lookup = invoke(javazip, "lookup", 1L)
+jz1_val = convertJListToRList(jz1_lookup, flatten=TRUE)
 
-# TODO: how to use things like '1:10' in Scala?
-# May have to ask Javier on this.
+# So could write this as a method
+do_collect = function(pairRDD, Rindex){
+    javaindex = Rindex - 1
+    seq = invoke(pairRDD, "lookup", javaindex)
+    convertJListToRList(seq, flatten=TRUE)
+}
+
+do_collect(javazip, 1L)
