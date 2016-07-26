@@ -115,7 +115,7 @@ invoke(backwards_zipped, "first")
 # zipped = invoke(backwards_zipped, "map", "_.swap")
 # zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
 
-bigint = invoke_new(sc, "java.math.BigInteger", "1000000000")
+bigint = invoke_new(sc, "java.math.BigInteger", "100000000")
 
 index = invoke_new(sc, "java.util.ArrayList")
 invoke(index, "add", 1L)
@@ -129,6 +129,8 @@ invoke(index, "add", 2L)
 
 #index = invoke_static(sc, "Arrays", "asList", 1, 2, 3)
 
+# Can I use Scala?
+bigint_scala = invoke_new(sc, "scala.math.ScalaNumber", "7")
 
 
 #zipped = invoke(fxrdd, "zip", index)
