@@ -6,15 +6,16 @@
 
 library(sparkapi)
 
-# This is all I want spark to do:
+# For the second task this is all I want spark to do:
 ############################################################
-x = list(1:10, letters)
+x = list(1:10, letters, rnorm(10))
 FUN = function(x) x[1:5]
 fx = lapply(x, FUN)
 ############################################################
 
-
-parts = split(x, 2)
+nparts = 2
+# TODO: generalize this splitting
+parts = split(x, c(1, 1, 2))
 serial_parts <- lapply(parts, serialize, connection = NULL)
 
 sc <- start_shell(master = "local")
@@ -70,3 +71,20 @@ fxrdd2 <- invoke(fxrdd, "asJavaRDD")
 collected <- invoke(fxrdd2, "collect")
 
 final = convertJListToRList(collected, flatten=TRUE)
+
+# Now for part 1) How to retreive elements? x[i]
+
+# Following this
+# http://stackoverflow.com/questions/26828815/how-to-get-element-by-index-in-spark-rdd-java
+#backwards_zipped = invoke(fxrdd, "zipWithIndex")
+
+#zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
+
+#invoke_new(sc, "java.math.BigInteger", "1000000000")
+
+#invoke_new(sc, "scala.collection.immutable.Range.Inclusive", 
+
+#invoke_static(sc, "IntStream", "rangeClosed", 1, 10)
+
+# TODO: how to use things like '1:10' in Scala?
+# May have to ask Javier on this.
