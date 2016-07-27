@@ -1,31 +1,90 @@
 setOldClass("spark_jobj")
+setOldClass("spark_connection")
+setClass("rddlist", slots = list(sc = "spark_connection",
+                                 jobj = "spark_jobj", nparts = "integer"))
 
-setClass("rddlist", slots = list(jobj = "spark_jobj", nparts = "integer"))
 
 setMethod("initialize", "rddlist",
-function(.Object, Rlist, nparts){
-    
-    # TODO - fill these in with the actual logic
-    .Object@jobj = invoke_new(sc, "java.math.BigInteger", "100000000")
+function(.Object, sc, Rlist, nparts){
+        
+    n = length(Rlist)
+    nparts = max(nparts, n)
+
+    # Strategy is to have about the same number of list elements in each
+    # element of the RDD. This makes sense if the list elements are roughly the
+    # same size.
+    part_index = sort(rep(seq(nparts), length.out = n))
+
+    parts = split(x, part_index)
+    serial_parts = lapply(parts, serialize, connection = NULL)
+
+    # Original serialized data as an RRDD, which is an RDD capable of creating
+    # R processes
+    .Object@jobj = invoke_static(sc,
+                                 "org.apache.spark.api.r.RRDD",
+                                 "createRDDFromArray",
+                                 java_context(sc),
+                                 serial_parts)
+    .Object@sc = sc
     .Object@nparts = nparts
     .Object
 })
 
 
+setMethod("lapply", signature(X = "rddlist", FUN = "function"),
+# TODO: support dots
+# function(X, FUN, ...){
+function(X, FUN, ...){
 
-nparts = 2
-# TODO: generalize this splitting
-parts = split(x, c(1, 1, 2))
-serial_parts <- lapply(parts, serialize, connection = NULL)
+    # The function should be in a particular form for calling Spark's
+    # org.apache.spark.api.r.RRDD class constructor
+    FUN_applied = function(partIndex, part) {
+        lapply(part, FUN)
+    }
+    FUN_clean = cleanClosure(FUN_applied)
+
+    # TODO: Could come back and implement this functionality later
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # I believe broadcastArr holds these broadcast variables:
+    # https://spark.apache.org/docs/latest/programming-guide.html#broadcast-variables
+    # But what's the relation between broadcast variables, FUN's closure,
+    # and the ... argument?
+
+browser()
+    
+    # Converts to ParallelCollectionRDD
+    # TODO: Is this step necessary?
+    xrdd = invoke(X@jobj, "rdd")
+
+#Wed Jul 27 13:36:59 PDT 2016 - This is failing
+    # Now apply the function
+    fxrdd <- invoke_new(X@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       xrdd,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       invoke(xrdd, "classTag")
+                       )
+})
 
 
-# Original serialized data as an RRDD, which is an RDD capable of creating
-# R processes
-xrdd <- invoke_static(sc,
-                      "org.apache.spark.api.r.RRDD",
-                      "createRDDFromArray",
-                      java_context(sc),
-                      serial_parts)
+# Define it this way for the moment so it doesn't conflict with
+# ddR::collect
+# Convert the distributed list to a local list
+collect_rddlist = function(rddlist){
+    collected = invoke(rddlist@jobj, "collect")
+    convertJListToRList(collected)
+}
+
+
+
+############################################################
+
+if(FALSE){
 
 # This works and gives a SeqWrapper
 #collected <- invoke(rdd, "collect")
@@ -35,8 +94,6 @@ xrdd <- invoke_static(sc,
 # The function should be in a particular form. I don't see any documentation
 # for this.
 #cleanfunc = cleanClosure(func)
-# This gets us cleanClosure and convertJListToRList
-source('~/dev/sparkapi/samples/sparkrdd-sample/R/rdd_utils.R')
 
 FUN_withapply <- function(partIndex, part) {
   lapply(part, FUN)
@@ -110,7 +167,7 @@ invoke(backwards_zipped, "first")
 # zipped = invoke(backwards_zipped, "map", "_.swap")
 # zipped = invoke(backwards_zipped, "map", "case (k,v) => (v,k)")
 
-(0 to 100).toList
+#(0 to 100).toList
 
 bigint = invoke_new(sc, "java.math.BigInteger", "100000000")
 
@@ -153,9 +210,12 @@ do_collect = function(pairRDD, Rindex){
 }
 
 do_collect(javazip, 1L)
+}
 
+if(FALSE){
 
-if(TRUE){
+    # This gets us cleanClosure and convertJListToRList
+    source('utils.R')
 
     # Testing
     library(sparkapi)
@@ -169,8 +229,12 @@ if(TRUE){
     # Spark RDD way
     sc <- start_shell(master = "local")
 
-    xrdd = new("rddlist", x, nparts = 2L)
+    xrdd = new("rddlist", sc, x, nparts = 2L)
 
     fxrdd = lapply(xrdd, FUN)
+
     fxrdd[[2]]
+
+    # Is it possible to pipeline?
+
 }
