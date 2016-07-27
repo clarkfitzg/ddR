@@ -32,9 +32,9 @@ function(.Object, sc, Rlist, nparts){
 
 
 setMethod("lapply", signature(X = "rddlist", FUN = "function"),
+function(X, FUN){
 # TODO: support dots
 # function(X, FUN, ...){
-function(X, FUN){
 
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
@@ -51,7 +51,7 @@ function(X, FUN){
     # But what's the relation between broadcast variables, FUN's closure,
     # and the ... argument?
 
-    # Now apply the function
+    # Use Spark to apply FUN
     fxrdd <- invoke_new(X@sc,
                        "org.apache.spark.api.r.RRDD",  # A new instance of this class
                        invoke(X@jobj, "rdd"),
@@ -60,10 +60,12 @@ function(X, FUN){
                        "byte",  # name of serializer / deserializer
                        packageNamesArr,  
                        broadcastArr,
-                       invoke(X@jobj, "classTag")
+                       invoke(X@jobj, "classTag")  # Array[byte]
                        )
     
-    new("rddlist", sc = X@sc, jobj = fxrdd, nparts = X@nparts)
+    output = X
+    output@jobj = fxrdd
+    output
 })
 
 
@@ -72,7 +74,7 @@ function(X, FUN){
 # Convert the distributed list to a local list
 collect_rddlist = function(rddlist){
     collected = invoke(rddlist@jobj, "collect")
-    convertJListToRList(collected)
+    convertJListToRList(collected, flatten = TRUE)
 }
 
 if(TRUE){
@@ -95,6 +97,10 @@ if(TRUE){
     xrdd = new("rddlist", sc, x, nparts = 2L)
 
     fxrdd = lapply(xrdd, FUN)
+
+    x2 = collect_rddlist(xrdd)
+
+    #fx2 = collect_rddlist(fxrdd)
 
     #fxrdd[[2]]
 
