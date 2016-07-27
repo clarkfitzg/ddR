@@ -56,6 +56,8 @@ FUN_clean = cleanClosure(FUN_withapply)
 packageNamesArr <- serialize(NULL, NULL)
 broadcastArr <- list()
 
+
+
 # Now apply the function
 fxrdd <- invoke_new(sc,
                    "org.apache.spark.api.r.RRDD",  # A new instance of this class
