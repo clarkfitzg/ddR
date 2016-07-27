@@ -1,26 +1,23 @@
-# Mon Jul 25 10:14:43 PDT 2016
+setOldClass("spark_jobj")
 
-# We basically need to do two things:
-# 1) [ Retrieve elements 
-# 2) Map R functions onto binary data
-#
-# Also create new transformed datasets
+setClass("rddlist", slots = list(jobj = "spark_jobj", nparts = "integer"))
 
-library(sparkapi)
+setMethod("initialize", "rddlist",
+function(.Object, Rlist, nparts){
+    
+    # TODO - fill these in with the actual logic
+    .Object@jobj = invoke_new(sc, "java.math.BigInteger", "100000000")
+    .Object@nparts = nparts
+    .Object
+})
 
-# For the second task this is all I want spark to do:
-############################################################
-x = list(1:10, letters, rnorm(10))
-FUN = function(x) x[1:5]
-fx = lapply(x, FUN)
-############################################################
+
 
 nparts = 2
 # TODO: generalize this splitting
 parts = split(x, c(1, 1, 2))
 serial_parts <- lapply(parts, serialize, connection = NULL)
 
-sc <- start_shell(master = "local")
 
 # Original serialized data as an RRDD, which is an RDD capable of creating
 # R processes
@@ -156,3 +153,24 @@ do_collect = function(pairRDD, Rindex){
 }
 
 do_collect(javazip, 1L)
+
+
+if(TRUE){
+
+    # Testing
+    library(sparkapi)
+    FUN = function(x) x[1:5]
+
+    # local R way
+    x = list(1:10, letters, rnorm(10))
+    fx = lapply(x, FUN)
+    fx[[2]]
+
+    # Spark RDD way
+    sc <- start_shell(master = "local")
+
+    xrdd = new("rddlist", x, nparts = 2L)
+
+    fxrdd = lapply(xrdd, FUN)
+    fxrdd[[2]]
+}

@@ -19,6 +19,7 @@ setClass("ddR_RDD", contains = "DObject",
                           dim = c(1L, 1L)))
 
 setMethod("initialize", "ddR_RDD", function(.Object, ...) {
+    # Dispatches to rddlist?
     .Object <- callNextMethod(.Object, ...)
 })
 

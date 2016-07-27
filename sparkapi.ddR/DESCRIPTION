@@ -16,6 +16,5 @@ RoxygenNote: 5.0.1
 Collate:
     'driver.R'
     'object.R'
-    'rdd.R'
-    'rdd_context.R'
-    'rdd_utils.R'
+    'pair_rdd.R'
+    'utils.R'
