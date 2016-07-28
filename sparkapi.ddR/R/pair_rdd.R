@@ -155,6 +155,7 @@ if(TRUE){
     fxrdd[[2]]
 
     # Is it possible to pipeline?
+    ############################################################
     FUN2 = function(x) rep(x, 2)
     xrdd = new("rddlist", sc, x, nparts = 2L)
     fxrdd = lapply(xrdd, FUN)
@@ -164,6 +165,7 @@ if(TRUE){
     collect_rddlist(ffxrdd)
 
     # Is it lazy?
+    ############################################################
     hard1 = function(x){
         # Making it sleep for 3 seconds results in failed job:
         # Accept timed out
@@ -180,4 +182,18 @@ if(TRUE){
     # Takes time for this one => lazy!
     collect_rddlist(ffxrdd)
     
+    # Does it avoid unnecessary computation?
+    ############################################################
+    chars_kill_me = function(x){
+        if(is.character(x)) stop("failing miserably")
+        x
+    }
+
+    xrdd = new("rddlist", sc, x, nparts = 3L)
+    fxrdd = lapply(xrdd, chars_kill_me)
+
+    # To evaluate this it's only necessary to call this function on the
+    # first chunk. However, this produces an error message, implying it was
+    # called on the 2nd chunk as well.
+    #fxrdd[[1]]
 }
