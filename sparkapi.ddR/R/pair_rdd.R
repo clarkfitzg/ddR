@@ -107,15 +107,26 @@ function(X, FUN){
 })
 
 
+setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
+function(x, i, j){
+    javaindex = i - 1L
+    jlist = invoke(x@pairRDD, "lookup", javaindex)
+    convertJListToRList(jlist, flatten=TRUE)
+})
+
+
 # Define it this way for the moment so it doesn't conflict with
 # ddR::collect
 # Convert the distributed list to a local list
 collect_rddlist = function(rddlist){
-    collected = invoke(rddlist@pairRDD, "collect")
+    values = invoke(rddlist@pairRDD, "values")
+    collected = invoke(values, "collect")
     convertJListToRList(collected, flatten = TRUE)
 }
 
+
 if(TRUE){
+    # Tests - could formalize these
 
     # This gets us cleanClosure and convertJListToRList
     source('utils.R')
@@ -136,13 +147,13 @@ if(TRUE){
 
     fxrdd = lapply(xrdd, FUN)
 
-    #x2 = collect_rddlist(xrdd)
+    x2 = collect_rddlist(xrdd)
 
-    # Currently failing
-    #fx2 = collect_rddlist(fxrdd)
+    fx2 = collect_rddlist(fxrdd)
 
-    #xrdd[[2]]
-    #fxrdd[[2]]
+    xrdd[[2]]
+
+    fxrdd[[2]]
 
     # Is it possible to pipeline?
 
