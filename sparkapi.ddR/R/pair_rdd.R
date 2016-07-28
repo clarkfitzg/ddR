@@ -1,4 +1,3 @@
-
 # Use S4 for consistency with ddR
 setOldClass("spark_jobj")
 setOldClass("spark_connection")
@@ -22,8 +21,6 @@ function(.Object, sc, Rlist, nparts){
     parts = split(x, part_index)
     serial_parts = lapply(parts, serialize, connection = NULL)
 
-    #browser()
-
     # An RDD of the serialized R parts
     # This is class org.apache.spark.api.java.JavaRDD
     RDD = invoke_static(sc,
@@ -40,12 +37,6 @@ function(.Object, sc, Rlist, nparts){
 
     # The pairRDD of (integer, data) 
     pairRDD = invoke(index, "zip", RDD)
-
-    # TODO: delete
-    # Is there any advantage to converting from Java object? No, won't zip
-    # then.
-    #rdd = invoke(RDD, "rdd")
-    #pairRDD2 = invoke(index, "zip", rdd)
 
     .Object@sc = sc
     .Object@pairRDD = pairRDD
@@ -91,8 +82,6 @@ function(X, FUN){
                        X@classTag
                        )
 
-#browser()
-
     # Convert this into class org.apache.spark.api.java.JavaRDD so we can
     # zip
     JavaRDD = invoke(fxrdd, "asJavaRDD")
@@ -105,6 +94,54 @@ function(X, FUN){
     output@pairRDD = pairRDD
     output
 })
+
+
+# do_mapply(driver, func, ..., MoreArgs = list(), output.type = "dlist",
+# nparts = NULL, combine = "default")
+# do_mapply will call this function
+mapply_rdd_list = function(x, func, MoreArgs = list() ){
+
+    # The function should be in a particular form for calling Spark's
+    # org.apache.spark.api.r.RRDD class constructor
+    func_applied = function(partIndex, part) {
+        lapply(part, func)
+    }
+    func_clean = cleanClosure(func_applied)
+
+    # TODO: Could come back and implement this functionality later
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # I believe broadcastArr holds these broadcast variables:
+    # https://spark.apache.org/docs/latest/programming-guide.html#broadcast-variables
+    # But what's the relation between broadcast variables, func's closure,
+    # and the ... argument?
+    
+    vals = invoke(x@pairRDD, "values")
+
+    # Use Spark to apply func
+    fxrdd <- invoke_new(x@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       invoke(vals, "rdd"),
+                       serialize(func_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       x@classTag
+                       )
+
+    # Convert this into class org.apache.spark.api.java.JavaRDD so we can
+    # zip
+    JavaRDD = invoke(fxrdd, "asJavaRDD")
+
+    # Reuse the old index to create the PairRDD
+    index = invoke(x@pairRDD, "keys")
+    pairRDD = invoke(index, "zip", JavaRDD)
+   
+    output = x
+    output@pairRDD = pairRDD
+    output
+}
 
 
 setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
@@ -154,7 +191,7 @@ if(TRUE){
 
     fxrdd[[2]]
 
-    # Is it possible to pipeline?
+    # Is it possible to pipeline? Yes
     ############################################################
     FUN2 = function(x) rep(x, 2)
     xrdd = new("rddlist", sc, x, nparts = 2L)
@@ -164,7 +201,7 @@ if(TRUE){
     # Yes! Works!
     collect_rddlist(ffxrdd)
 
-    # Is it lazy?
+    # Is it lazy? Yes
     ############################################################
     hard1 = function(x){
         # Making it sleep for 3 seconds results in failed job:
@@ -182,7 +219,16 @@ if(TRUE){
     # Takes time for this one => lazy!
     collect_rddlist(ffxrdd)
     
-    # Does it avoid unnecessary computation?
+    # Does it cache results? No
+    ############################################################
+
+    # Running this multiple times returns quickly every time
+    xrdd[[1]]
+
+    # This takes several seconds every time
+    ffxrdd[[1]]
+
+    # Does it avoid unnecessary computation? No
     ############################################################
     chars_kill_me = function(x){
         if(is.character(x)) stop("failing miserably")
@@ -196,4 +242,13 @@ if(TRUE){
     # first chunk. However, this produces an error message, implying it was
     # called on the 2nd chunk as well.
     #fxrdd[[1]]
+
+    # This is fine- it's a much lower priority to have this.
+
+    # Testing mapply
+    ############################################################
+    #x = list(1:10, rnorm(20))
+
+    MoreArgs = list(center = FALSE, scale = TRUE)
+    
 }
