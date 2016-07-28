@@ -1,7 +1,11 @@
+
+# Use S4 for consistency with ddR
 setOldClass("spark_jobj")
 setOldClass("spark_connection")
 setClass("rddlist", slots = list(sc = "spark_connection",
-                                 jobj = "spark_jobj", nparts = "integer"))
+                                 pairRDD = "spark_jobj",
+                                 nparts = "integer",
+                                 classTag = "spark_jobj"))
 
 
 setMethod("initialize", "rddlist",
@@ -18,15 +22,37 @@ function(.Object, sc, Rlist, nparts){
     parts = split(x, part_index)
     serial_parts = lapply(parts, serialize, connection = NULL)
 
-    # Original serialized data as an RRDD, which is an RDD capable of creating
-    # R processes
-    .Object@jobj = invoke_static(sc,
-                                 "org.apache.spark.api.r.RRDD",
-                                 "createRDDFromArray",
-                                 java_context(sc),
-                                 serial_parts)
+    #browser()
+
+    # An RDD of the serialized R parts
+    # This is class org.apache.spark.api.java.JavaRDD
+    RDD = invoke_static(sc,
+                        "org.apache.spark.api.r.RRDD",
+                        "createRDDFromArray",
+                        java_context(sc),
+                        serial_parts)
+
+    # (data, integer) pairs
+    backwards = invoke(RDD, "zipWithIndex")
+
+    # An RDD of integers
+    index = invoke(backwards, "values")
+
+    # The pairRDD of (integer, data) 
+    pairRDD = invoke(index, "zip", RDD)
+
+    # TODO: delete
+    # Is there any advantage to converting from Java object? No, won't zip
+    # then.
+    #rdd = invoke(RDD, "rdd")
+    #pairRDD2 = invoke(index, "zip", rdd)
+
     .Object@sc = sc
+    .Object@pairRDD = pairRDD
     .Object@nparts = nparts
+    # This is all written specifically for bytes, so should be fine to let this 
+    # classTag have a slot.
+    .Object@classTag = invoke(RDD, "classTag")  # Array[byte]
     .Object
 })
 
@@ -50,21 +76,33 @@ function(X, FUN){
     # https://spark.apache.org/docs/latest/programming-guide.html#broadcast-variables
     # But what's the relation between broadcast variables, FUN's closure,
     # and the ... argument?
+    
+    vals = invoke(X@pairRDD, "values")
 
     # Use Spark to apply FUN
     fxrdd <- invoke_new(X@sc,
                        "org.apache.spark.api.r.RRDD",  # A new instance of this class
-                       invoke(X@jobj, "rdd"),
+                       invoke(vals, "rdd"),
                        serialize(FUN_clean, NULL),
                        "byte",  # name of serializer / deserializer
                        "byte",  # name of serializer / deserializer
                        packageNamesArr,  
                        broadcastArr,
-                       invoke(X@jobj, "classTag")  # Array[byte]
+                       X@classTag
                        )
-    
+
+#browser()
+
+    # Convert this into class org.apache.spark.api.java.JavaRDD so we can
+    # zip
+    JavaRDD = invoke(fxrdd, "asJavaRDD")
+
+    # Reuse the old index to create the PairRDD
+    index = invoke(X@pairRDD, "keys")
+    pairRDD = invoke(index, "zip", JavaRDD)
+   
     output = X
-    output@jobj = fxrdd
+    output@pairRDD = pairRDD
     output
 })
 
@@ -73,7 +111,7 @@ function(X, FUN){
 # ddR::collect
 # Convert the distributed list to a local list
 collect_rddlist = function(rddlist){
-    collected = invoke(rddlist@jobj, "collect")
+    collected = invoke(rddlist@pairRDD, "collect")
     convertJListToRList(collected, flatten = TRUE)
 }
 
@@ -98,10 +136,12 @@ if(TRUE){
 
     fxrdd = lapply(xrdd, FUN)
 
-    x2 = collect_rddlist(xrdd)
+    #x2 = collect_rddlist(xrdd)
 
+    # Currently failing
     #fx2 = collect_rddlist(fxrdd)
 
+    #xrdd[[2]]
     #fxrdd[[2]]
 
     # Is it possible to pipeline?
