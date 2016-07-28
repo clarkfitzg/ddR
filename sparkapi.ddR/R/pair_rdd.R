@@ -1,3 +1,5 @@
+CACHE_DEFAULT = TRUE
+
 # Use S4 for consistency with ddR
 setOldClass("spark_jobj")
 setOldClass("spark_connection")
@@ -100,10 +102,15 @@ function(X, FUN){
 # nparts = NULL, combine = "default")
 # do_mapply will call this function
 # driver not necessary since that's carried around in the spark context
-mapply_rdd_list = function(func, ..., MoreArgs = list(),
-    output.type = "dlist", nparts = NULL, combine = "default")
-{
+#
+# Set cache = TRUE to use Spark to cache the result the first time it's
+# computed. This could be a problem as the data pushes the limits of system
+# memory.
 
+mapply_rdd_list = function(func, ..., MoreArgs = list(),
+            output.type = "dlist", nparts = NULL, combine = "default",
+            cache = CACHE_DEFAULT)
+{
     dots = list(...)
     #browser()
     # TODO: remove this constraint
@@ -113,7 +120,8 @@ mapply_rdd_list = function(func, ..., MoreArgs = list(),
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
     func_applied = function(partIndex, part) {
-        lapply(part, func)
+        #lapply(part, func)
+        do.call(lapply, c(list(part, func), MoreArgs))
     }
     func_clean = cleanClosure(func_applied)
 
@@ -146,6 +154,8 @@ mapply_rdd_list = function(func, ..., MoreArgs = list(),
     # Reuse the old index to create the PairRDD
     index = invoke(x@pairRDD, "keys")
     pairRDD = invoke(index, "zip", JavaRDD)
+
+    if(cache) invoke(pairRDD, "cache")
    
     output = x
     output@pairRDD = pairRDD
@@ -228,14 +238,21 @@ if(TRUE){
     # Takes time for this one => lazy!
     #collect_rddlist(ffxrdd)
     
-    # Does it cache results? No
+    # Does it cache results? Not by default, but easy to turn on
     ############################################################
 
     # Running this multiple times returns quickly every time
     xrdd[[1]]
 
-    # This takes several seconds every time
+    # This takes several seconds every time. Even though conceptually it
+    # only needed to happen once. 
     #ffxrdd[[1]]
+
+    # Explicitly cache this
+    invoke(ffxrdd@pairRDD, "cache")
+    
+    # Now this is slow the first time, and fast afterwards. Sweet!
+    # ffxrdd[[1]]
 
     # Does it avoid unnecessary computation? No
     ############################################################
@@ -254,6 +271,10 @@ if(TRUE){
 
     # This is fine- it's a much lower priority to have this.
 
+    # Thinking more - this issue is really in the JavaPairRDD.lookup
+    # method. It only needs to compute the value for the selected keys. So a fix
+    # should ideally happen upstream at that level.
+
     # Testing mapply
     ############################################################
 
@@ -263,10 +284,14 @@ if(TRUE){
     mapply(sum, x, MoreArgs = list(na.rm = TRUE))
 
     xrdd = new("rddlist", sc, x, nparts = 2L)
-    fxrdd = mapply_rdd_list(xrdd, func = sum,
-                            MoreArgs = list(na.rm = TRUE))
+    fxrdd = mapply_rdd_list(sum, xrdd, MoreArgs = list(na.rm = TRUE))
 
     out = collect_rddlist(fxrdd)
 
+    # Verify caching behavior
+    fxrdd = mapply_rdd_list(hard1, xrdd)
+
+    # Works. This is fast the 2nd time.
+    collect_rddlist(fxrdd)
 
 }

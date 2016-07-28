@@ -66,7 +66,11 @@ pipelines in R, so it's simpler.
 
 Conceptually, it's only necessary to do the actual computation once a user
 calls `[[` or a `collect` method which would return the evaluated RDD as a
-local R list.
+local R list. This lazy evaluation is what currently happens.
+
+Caching is off by default. But I'm going to turn it on for everything
+because the current implementation for ddR does lots of collecting and
+calling length.
 
 ### SparkR
 
