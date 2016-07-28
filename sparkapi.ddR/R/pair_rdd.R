@@ -99,7 +99,16 @@ function(X, FUN){
 # do_mapply(driver, func, ..., MoreArgs = list(), output.type = "dlist",
 # nparts = NULL, combine = "default")
 # do_mapply will call this function
-mapply_rdd_list = function(x, func, MoreArgs = list() ){
+# driver not necessary since that's carried around in the spark context
+mapply_rdd_list = function(func, ..., MoreArgs = list(),
+    output.type = "dlist", nparts = NULL, combine = "default")
+{
+
+    dots = list(...)
+    #browser()
+    # TODO: remove this constraint
+    if(length(dots) > 1) stop("multiple arguments not yet supported")
+    x = dots[[1]]
 
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
@@ -217,7 +226,7 @@ if(TRUE){
     ffxrdd = lapply(fxrdd, hard1)
 
     # Takes time for this one => lazy!
-    collect_rddlist(ffxrdd)
+    #collect_rddlist(ffxrdd)
     
     # Does it cache results? No
     ############################################################
@@ -226,7 +235,7 @@ if(TRUE){
     xrdd[[1]]
 
     # This takes several seconds every time
-    ffxrdd[[1]]
+    #ffxrdd[[1]]
 
     # Does it avoid unnecessary computation? No
     ############################################################
@@ -247,8 +256,17 @@ if(TRUE){
 
     # Testing mapply
     ############################################################
-    #x = list(1:10, rnorm(20))
 
-    MoreArgs = list(center = FALSE, scale = TRUE)
-    
+    x = list(c(1:10, NA), c(rnorm(20), NA))
+
+    # The behavior to emulate
+    mapply(sum, x, MoreArgs = list(na.rm = TRUE))
+
+    xrdd = new("rddlist", sc, x, nparts = 2L)
+    fxrdd = mapply_rdd_list(xrdd, func = sum,
+                            MoreArgs = list(na.rm = TRUE))
+
+    out = collect_rddlist(fxrdd)
+
+
 }

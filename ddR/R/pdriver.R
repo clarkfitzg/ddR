@@ -91,6 +91,8 @@ setMethod("do_dmapply",
                    nparts = NULL,
                    combine = c("default","c", "rbind", "cbind"))
 {
+
+# Clark: Why is this code here rather than in the dmapply function?
   stopifnot(is.list(MoreArgs))
   output.type <- match.arg(output.type)
   if (!is.null(nparts)) {

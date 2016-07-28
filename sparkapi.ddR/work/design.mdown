@@ -61,8 +61,8 @@ __Cons__
 Wed Jul 27 11:13:34 PDT 2016
 
 The first idea is to make a pair RDD that has `lapply` and `[[` methods.
-This differs from SparkR RDD's since it has `[[` and it doesn't use 
-pipelining, so it's simpler.
+This differs from SparkR RDD's since it has `[[` and it doesn't build
+pipelines in R, so it's simpler.
 
 Conceptually, it's only necessary to do the actual computation once a user
 calls `[[` or a `collect` method which would return the evaluated RDD as a
@@ -90,7 +90,7 @@ __Pros__
 
 __Cons__
 
-- More difficult to install since SparkR is not on CRAN
+- More difficult for users to install since SparkR is not on CRAN
 - Long term stability and support of necessary code in SparkR is not
   guaranteed
 - May be more overhead from running through SparkR 
@@ -137,4 +137,49 @@ __init__ Called when the backend driver is initialized.
 
 __shutdown__ Called when the backend driver is shutdown.
 
-__do_dmapply__ Backend-specific dmapply logic.
+__do_dmapply__ 
+Backend-specific dmapply logic. This is a required override for all
+backends to implement so
+dmapply works.
+
+#### Usage
+
+```
+do_dmapply(driver, func, ..., MoreArgs = list(), output.type = "dlist",
+nparts = NULL, combine = "default")
+```
+
+#### Arguments
+
+- `driver` The driver that the logic dispatches on.
+- `func` The function to execute
+- `...` Iterable arguments from dmapply.
+- `MoreArgs` A list of more arguments to the function.
+- `output.type` The type of output (can be ’dlist’, ’darray’, ’sparse_darray’,
+        or ’dframe’).
+- `nparts` A 2d-vector indicating how the output is partitioned.
+- `combine` One of ’default’, ’rbind’, ’cbind’, or ’c’, which specifies how the
+        results from each partition should be combined.
+
+#### Value 
+
+An object specific to the backend, with the nparts and psize fields filled.
+
+## Working Notes
+
+There is only one call to `do dmapply` inside `dmapply`. `dmapply`
+basically just does bookkeeping like dimension checking.
+
+```
+
+library(ddR)
+
+x = 1:5
+yd = dmapply(sum, x, x + 1, x + 2)
+y = collect(yd)
+
+y2 = mapply(sum, x, x + 1, x + 2)
+
+
+
+```
