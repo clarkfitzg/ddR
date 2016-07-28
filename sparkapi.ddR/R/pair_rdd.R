@@ -144,7 +144,6 @@ if(TRUE){
     sc <- start_shell(master = "local")
 
     xrdd = new("rddlist", sc, x, nparts = 2L)
-
     fxrdd = lapply(xrdd, FUN)
 
     x2 = collect_rddlist(xrdd)
@@ -156,5 +155,29 @@ if(TRUE){
     fxrdd[[2]]
 
     # Is it possible to pipeline?
+    FUN2 = function(x) rep(x, 2)
+    xrdd = new("rddlist", sc, x, nparts = 2L)
+    fxrdd = lapply(xrdd, FUN)
+    ffxrdd = lapply(fxrdd, FUN2)
+    
+    # Yes! Works!
+    collect_rddlist(ffxrdd)
 
+    # Is it lazy?
+    hard1 = function(x){
+        # Making it sleep for 3 seconds results in failed job:
+        # Accept timed out
+        Sys.sleep(1)
+        as.character(x)
+    }
+
+    xrdd = new("rddlist", sc, x, nparts = 2L)
+
+    # These return immediately
+    fxrdd = lapply(xrdd, hard1)
+    ffxrdd = lapply(fxrdd, hard1)
+
+    # Takes time for this one => lazy!
+    collect_rddlist(ffxrdd)
+    
 }
