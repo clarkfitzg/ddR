@@ -10,7 +10,6 @@
 # this program; if not, write to the Free Software Foundation, Inc., 59 Temple
 # Place, Suite 330, Boston, MA 02111-1307 USA.
 
-#' @include driver.R
 #' @include rddlist.R
 
 # Create the ddR_RDD Object
@@ -27,18 +26,24 @@ setMethod("initialize", "ddR_RDD", function(.Object, ...) {
 #' @export
 setMethod("get_parts", signature("ddR_RDD", "missing"), function(x, ...) {
 
+    # Placeholder
+    1:10
 })
 
 #' @export
 setMethod("get_parts", signature("ddR_RDD", "integer"),
 function(x, index, ...) {
 
+    # Placeholder
+    1:10
 })
 
 #' @export
 setMethod("do_collect", signature("ddR_RDD", "integer"),
 function(x, parts) {
 
+    # Placeholder
+    1:10
 })
 
 setMethod("combine", signature(driver = "ddR_RDD", items = "list"),
@@ -47,4 +52,6 @@ function(driver, items) {
     #new("ddR_RDD", RDD = items[[1]]@RDD, partitions = unlist(split_indices), dim = dims, 
         #psize = psizes)
 
+    # Placeholder
+    1:10
 })

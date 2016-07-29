@@ -15,6 +15,6 @@ LazyData: true
 RoxygenNote: 5.0.1
 Collate:
     'driver.R'
+    'rddlist.R'
     'object.R'
-    'pair_rdd.R'
     'utils.R'

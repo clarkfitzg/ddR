@@ -1,3 +1,6 @@
+# sparkapi provides all the invoke functions
+#' @importFrom sparkapi invoke invoke_new invoke_static java_context
+
 CACHE_DEFAULT = TRUE
 
 # Use S4 for consistency with ddR
@@ -28,7 +31,7 @@ function(.Object, sc, Rlist, nparts){
     RDD = invoke_static(sc,
                         "org.apache.spark.api.r.RRDD",
                         "createRDDFromArray",
-                        java_context(sc),
+                        sparkapi::java_context(sc),
                         serial_parts)
 
     # (data, integer) pairs

@@ -50,7 +50,8 @@ setMethod("do_dmapply",
     output.type = c("dlist", "dframe", "darray", "sparse_darray"),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
    
-
+    # Placeholder
+    1:10
 
     ## Last step: Create new ddR_RDD object
     
