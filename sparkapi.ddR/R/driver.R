@@ -52,18 +52,18 @@ setMethod("init", "SparkddR", function(x, ...) {
 #' @export
 setMethod("shutdown", "SparkddR", function(x) {
     message("Stopping the Spark shell...")
-    stop_shell(Spark.ddR.env$context)
+    stop_shell(Spark.ddR.env$sc)
 })
 
 #' @export
 setMethod("do_dmapply",
     signature(driver = "SparkddR", func = "function"),
-    function(driver, func, ..., MoreArgs = list(),
+function(driver, func, ..., MoreArgs = list(),
     output.type = c("dlist", "dframe", "darray", "sparse_darray"),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
    
-    # Placeholder
-    1:10
+    # Convert ... into distributed objects if they're not already.
+    rddlist = 
 
     ## Last step: Create new ddR_RDD object
     
