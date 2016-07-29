@@ -137,7 +137,17 @@ calling context. Also can extract the ith element.
 
 ## driver.R
 
+This file creates the variable `sparkapi.ddR.env`, an environment which is
+used to hold anything you like specific to the backend.
+
+TODO: Clarify roles and relationships of (ddR.env, sparkapi.ddR.env, driver objects)
+
 __init__ Called when the backend driver is initialized.
+
+Looking at the code it appears that it should return the number of
+executors so that the `ddR.env$nexecutors` is correctly set.
+
+TODO: Document this return value in ddR.
 
 __shutdown__ Called when the backend driver is shutdown.
 

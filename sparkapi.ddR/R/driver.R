@@ -13,6 +13,8 @@
 #' @import methods ddR 
 #' @importFrom sparkapi start_shell stop_shell
 
+
+
 # Create distributedR ddRDriver
 setClass("SparkddR", contains = "ddRDriver")
 
@@ -20,6 +22,11 @@ setClass("SparkddR", contains = "ddRDriver")
 # Exported Driver
 Spark <- new("SparkddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD",
     DArrayClass = "ddR_RDD", backendName = "Spark")
+
+# Environmental variables
+sparkapi.ddR.env = new.env(emptyenv())
+# Unsure what this should be doing.
+#ddR.env$driver = Spark
 
 #' @export
 setMethod("init", "SparkddR", function(x, ...) {
@@ -31,10 +38,15 @@ setMethod("init", "SparkddR", function(x, ...) {
         dots[["master"]] <- "local"
     }
 
-    Spark.ddR.env$context <- start_shell(master = dots[["master"]], ...)
+    sc = start_shell(master = dots[["master"]], ...)
+    sparkapi.ddR.env$sc = sc
 
-    ## TODO(etduwx): return the actual number of executors
-    return(1)
+    # This is a list with available memory for each executor
+    memory_status = invoke(sc$spark_context, "getExecutorMemoryStatus")
+    # TODO verify this works. A bit tricky with the various Spark launching
+    # options
+    nexecutors = length(memory_status)
+    nexecutors
 })
 
 #' @export

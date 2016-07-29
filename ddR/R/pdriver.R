@@ -28,6 +28,7 @@ parallel <- new("ParallelddR",DListClass = "ParallelObj",DFrameClass = "Parallel
 # Driver for the parallel package. Parallel is also the default backend.
 ddR.env$driver <- parallel
 
+# Clark: Why does all this happen here rather than in the `init` method?
 #Set environment and default number of cores to total no. of cores (but one on windows)
 #Note that DetectCores() can return NA. If it's windows we use SNOW by default
 parallel.ddR.env <- new.env(emptyenv())
