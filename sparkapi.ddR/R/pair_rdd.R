@@ -181,7 +181,7 @@ collect_rddlist = function(rddlist){
 }
 
 
-if(TRUE){
+if(FALSE){
     # Tests - could formalize these
 
     # This gets us cleanClosure and convertJListToRList
