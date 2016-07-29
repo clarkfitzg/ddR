@@ -11,10 +11,11 @@
 # Place, Suite 330, Boston, MA 02111-1307 USA.
 
 #' @include driver.R
+#' @include rddlist.R
 
 # Create the ddR_RDD Object
 setClass("ddR_RDD", contains = "DObject",
-    slots = list(RDD = "RDD", partitions = "numeric"), 
+    slots = list(RDD = "rddlist", partitions = "numeric"), 
     prototype = prototype(nparts = c(1L, 1L), psize = matrix(1, 1),
                           dim = c(1L, 1L)))
 
