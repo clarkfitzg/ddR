@@ -115,6 +115,8 @@ __Cons__
 
 A ddR backend should implement the following methods:
 
+
+
 ## object.R
 
 __initialize__ Function `new` calls this to create a new parallel object
@@ -162,10 +164,8 @@ TODO: Document this return value in ddR.
 
 __shutdown__ Called when the backend driver is shutdown.
 
-__do_dmapply__ 
-Backend-specific dmapply logic. This is a required override for all
-backends to implement so
-dmapply works.
+__do_dmapply__  Backend-specific dmapply logic. This is a required override for all
+backends to implement so dmapply works.
 
 #### Usage
 
@@ -190,21 +190,24 @@ nparts = NULL, combine = "default")
 
 An object specific to the backend, with the nparts and psize fields filled.
 
-## Working Notes
+#### Notes
 
 There is only one call to `do dmapply` inside `dmapply`. `dmapply`
 basically just does bookkeeping like dimension checking.
+
+Use the parallel backend as the reference implementation:
 
 ```
 
 library(ddR)
 
-x = 1:5
-yd = dmapply(sum, x, x + 1, x + 2)
+a = 1:5
+yd = dmapply(sum, a, a + 1, a + 2)
 y = collect(yd)
+y2 = mapply(sum, a, a + 1, a + 2)
+# Work similarly
 
-y2 = mapply(sum, x, x + 1, x + 2)
-
-
+dmapply(function(x, y) x, a, a + 1)
 
 ```
+

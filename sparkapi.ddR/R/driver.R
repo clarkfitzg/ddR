@@ -61,13 +61,20 @@ setMethod("do_dmapply",
 function(driver, func, ..., MoreArgs = list(),
     output.type = c("dlist", "dframe", "darray", "sparse_darray"),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
-   
-    # Convert ... into distributed objects if they're not already.
-    rddlist = 
+
+    dots = list(...)
+
+    # Rely on the initialize methods of rddlist to normalize this
+    inRDD = new("rddlist", sc = sparkapi.ddR.env$sc, ..., nparts = nparts)
+
+    # mapply_rdd_list 
+    output.RDD = mapply_rdd_list(func, inRDD, MoreArgs = MoreArgs,
+                output.type = output.type, nparts = nparts,
+                combine = combine, cache = CACHE_DEFAULT)
 
     ## Last step: Create new ddR_RDD object
     
-    #new("ddR_RDD", RDD = output.RDD, nparts = nparts,
-        #psize = psizes, dim = dims, partitions = 1:prod(nparts))
+    new("ddR_RDD", RDD = output.RDD, nparts = nparts,
+        psize = psizes, dim = dims, partitions = 1:prod(nparts))
 
 })

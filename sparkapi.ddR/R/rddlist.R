@@ -101,6 +101,17 @@ function(X, FUN){
 })
 
 
+# Zips rdds together. For rdd's a, b, c:
+# 
+# zip(a, b, c) -> rdd[ list(a1, b1, c1), ... , list(an, bn, cn) ]
+#
+# Follows R's recycling rules so that the final length will be the length
+# of the largest rdd
+ziprdd = function(...){
+
+}
+
+
 # do_mapply(driver, func, ..., MoreArgs = list(), output.type = "dlist",
 # nparts = NULL, combine = "default")
 # do_mapply will call this function
@@ -109,7 +120,7 @@ function(X, FUN){
 # Set cache = TRUE to use Spark to cache the result the first time it's
 # computed. This could be a problem as the data pushes the limits of system
 # memory.
-
+#
 mapply_rdd_list = function(func, ..., MoreArgs = list(),
             output.type = "dlist", nparts = NULL, combine = "default",
             cache = CACHE_DEFAULT)
