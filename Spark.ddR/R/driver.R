@@ -61,14 +61,26 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
     # Each argument will be an RDD
     all.RDDs <- vector(mode = "list", length = length(all.args))
     
+    # Clark: Each argument is an RDD. There may be times when it's more
+    # efficient to broadcast. This means we are incurring whatever the cost
+    # of a Spark RDD. Edward said it was not performant. This could be part
+    # of the issue.
+
     pieceSize <- floor(length(all.args[[1]])/totParts) + 1
     remainder <- length(all.args[[1]])%%totParts
     
+    # Clark: A numeric vector
+
     modelApplyIterations <- c(rep(pieceSize, remainder), rep(pieceSize - 1, totParts - 
         remainder))
     
     key.vec <- NULL
+
+    # Clark: Goal is to understand exactly how this is working. What is
+    # the role of key.vec?
     
+    # Clark: This is the worst way to build a vector in R. Possible but
+    # unlikely that it's a bottleneck. Why is it being indexed with `[[`?
     for (a in seq(length(modelApplyIterations))) {
         key.vec <- c(key.vec, rep(a - 1, modelApplyIterations[[a]]))
     }
@@ -111,8 +123,13 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
                 
                 # arg@RDD <- partitionBy(arg@RDD, totalParts(arg), function(x) { x[[1]] })
                 
+# Clark: Repartitioning  doesn't necessarily need to happen if partitions
+# are already correct. 
+
                 warning("Repartitioning")
                 
+# Clark: This shuffle.partitions function is not actually used!
+
                 shuffle.partitions <- function(part_ind, x) {
                   global.row <- part_ind/obj.nparts[[2]]
                   global.col <- part_ind%%obj.nparts[[2]]
@@ -146,6 +163,9 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
                 # TODO(etduwx): Is there any way to make this more efficient?  Get all parts
                 # referred to in this list
             } else {
+
+# Clark: This nesting feels unnecessarily deep - could split this apart,
+# would be easier to read.
                 
                 all.objs <- unlist(arg)
                 all.parts <- vapply(all.objs, function(x) {
@@ -169,6 +189,9 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
                 new.RDD <- filterRDD(all.objs[[1]]@RDD, function(x) x[[1]] %in% (all.parts - 
                   1))
                 
+# Clark: How expensive are these Spark operations? There are 5+ called
+# every time do_dmapply is called.
+
                 new.RDD <- groupByKey(new.RDD, length(all.parts))
                 
                 # Now wrap each partition into its distributed object type
@@ -187,6 +210,8 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
                   }
                 }
                 
+# Clark: Why is this conversion necessary? Why isn't type preserved?
+
                 new.RDD <- map(new.RDD, wrap.FUN)
                 
                 # Create switch statement to order elements
