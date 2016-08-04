@@ -236,6 +236,12 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
         all.RDDs[[current.index]] <- new.RDD
     }
     
+# Clark: This is equivalent to forcing mapply into an lapply / map
+# paradigm. Did the drawing in my notebook. 
+# It's really the point of the whole approach.
+# We should end up with a zipped
+# RDD of Scala tuples. Check if these tuples can be longer than length 2?
+
     ## Step 3: Zip up all inputs into one RDD
     compound.RDD <- all.RDDs[[1]]
     
@@ -297,6 +303,9 @@ setMethod("do_dmapply", signature(driver = "SparkddR", func = "function"), funct
     
     ## Step 5: Run lapplyWithPartitions
     output.RDD <- mapValues(compound.RDD, exec.func)
+
+# Clark: Strange construction of two of these exec.func's that share the
+# same name.
     
     exec.func <- function(data) {
     }

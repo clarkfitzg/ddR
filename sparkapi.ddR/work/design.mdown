@@ -115,8 +115,6 @@ __Cons__
 
 A ddR backend should implement the following methods:
 
-
-
 ## object.R
 
 __initialize__ Function `new` calls this to create a new parallel object
@@ -210,4 +208,7 @@ y2 = mapply(sum, a, a + 1, a + 2)
 dmapply(function(x, y) x, a, a + 1)
 
 ```
+
+To make this work in Spark the approach is to convert all the arguments to
+RDD's, zip them together, and then do a map on the zipped RDD.
 

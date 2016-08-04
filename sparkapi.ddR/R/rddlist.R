@@ -1,5 +1,5 @@
 # sparkapi provides all the invoke functions
-#' @importFrom sparkapi invoke invoke_new invoke_static java_context
+#' @importFrom sparkapi invoke invoke_new invoke_static
 
 CACHE_DEFAULT = TRUE
 
@@ -195,7 +195,7 @@ collect_rddlist = function(rddlist){
 }
 
 
-if(FALSE){
+if(TRUE){
     # Tests - could formalize these
 
     # This gets us cleanClosure and convertJListToRList
@@ -215,7 +215,9 @@ if(FALSE){
 
     xrdd = new("rddlist", sc, x, nparts = 2L)
     fxrdd = lapply(xrdd, FUN)
+}
 
+if(FALSE){
     x2 = collect_rddlist(xrdd)
 
     fx2 = collect_rddlist(fxrdd)
@@ -307,5 +309,20 @@ if(FALSE){
 
     # Works. This is fast the 2nd time.
     collect_rddlist(fxrdd)
+
+}
+
+if(TRUE){
+
+    # Zipped RDD's
+    # Here's what we want to happen in local R
+    a = list(1:10, rnorm(10))
+    b = list(1:5, rnorm(5))
+    c = list(1:20, rnorm(20))
+
+    # A nested list ready for do.call
+    zipped = Map(list, a, b, c)
+
+    totals = lapply(zipped, function(x) do.call(sum, x))
 
 }
