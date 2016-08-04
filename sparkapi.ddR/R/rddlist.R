@@ -315,14 +315,25 @@ if(FALSE){
 if(TRUE){
 
     # Zipped RDD's
+
     # Here's what we want to happen in local R
     a = list(1:10, rnorm(10))
     b = list(1:5, rnorm(5))
     c = list(1:20, rnorm(20))
 
+    # This is the operation to emulate:
+    out1 = mapply(sum, a, b, c)
+
+    # If it's zipped then we can do this with lapply. Which was the whole
+    # point to make it work with Spark.
     # A nested list ready for do.call
     zipped = Map(list, a, b, c)
+    out2 = lapply(zipped, function(x) do.call(sum, x))
 
-    totals = lapply(zipped, function(x) do.call(sum, x))
+    # Now with RDD's
+    # Hmm, these are all the same? Why?
+    a2 = new("rddlist", sc, a, nparts = 2L)
+    b2 = new("rddlist", sc, b, nparts = 2L)
+    c2 = new("rddlist", sc, c, nparts = 2L)
 
 }
