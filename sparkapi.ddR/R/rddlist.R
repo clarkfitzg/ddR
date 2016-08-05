@@ -151,30 +151,85 @@ function(X, FUN){
     output
 })
 
+partitionFunc <- function(partIndex, part) {
+    zip = TRUE
+    serializerMode = "byte"
+    len <- length(part)
+    if (len > 0) {
+      if (serializerMode == "byte") {
+        lengthOfValues <- part[[len]]
+        lengthOfKeys <- part[[len - lengthOfValues]]
+        stopifnot(len == lengthOfKeys + lengthOfValues)
+
+        # For zip operation, check if corresponding partitions
+        # of both RDDs have the same number of elements.
+        if (zip && lengthOfKeys != lengthOfValues) {
+          stop(paste("Can only zip RDDs with same number of elements",
+                     "in each pair of corresponding partitions."))
+        }
+
+        if (lengthOfKeys > 1) {
+          keys <- part[1 : (lengthOfKeys - 1)]
+        } else {
+          keys <- list()
+        }
+        if (lengthOfValues > 1) {
+          values <- part[ (lengthOfKeys + 1) : (len - 1) ]
+        } else {
+          values <- list()
+        }
+
+        if (!zip) {
+          return(mergeCompactLists(keys, values))
+        }
+      } else {
+        keys <- part[c(TRUE, FALSE)]
+        values <- part[c(FALSE, TRUE)]
+      }
+      mapply(
+        function(k, v) { list(k, v) },
+        keys,
+        values,
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE)
+    } else {
+      part
+    }
+  }
+
 
 zip2 = function(a, b){
     aval = invoke(a@pairRDD, "values")
     bval = invoke(b@pairRDD, "values")
+    # class org.apache.spark.api.java.JavaPairRDD
     zipped = invoke(aval, "zip", bval)
-    combine = function(partIndex, part) {
-        lapply(part, function(x) x)
+    # class org.apache.spark.rdd.ZippedPartitionsRDD2
+    # This has the same number of elements as the input a.
+    RDD = invoke(zipped, "rdd")
+    FUN = function(x) list(x[1], x[2])
+    FUN_applied = function(partIndex, part) {
+        lapply(part, FUN)
     }
+    FUN_clean = cleanClosure(FUN_applied)
     # Copying logic from lapply - come back and refactor
     packageNamesArr <- serialize(NULL, NULL)
     broadcastArr <- list()
+    # Same length
     pairs <- invoke_new(a@sc,
                        "org.apache.spark.api.r.RRDD",  # A new instance of this class
-                       invoke(zipped, "rdd"),
-                       serialize(combine, NULL),
+                       RDD,
+                       serialize(FUN_clean, NULL),
                        "byte",  # name of serializer / deserializer
                        "byte",  # name of serializer / deserializer
                        packageNamesArr,  
                        broadcastArr,
                        a@classTag
                        )
+    # Same length
     JavaRDD = invoke(pairs, "asJavaRDD")
     # Reuse the old index to create the PairRDD
     index = invoke(a@pairRDD, "keys")
+    # Same length
     pairRDD = invoke(index, "zip", JavaRDD)
     output = a
     output@pairRDD = pairRDD
@@ -418,8 +473,12 @@ if(TRUE){
     b2 = rddlist(sc, b)
     c2 = rddlist(sc, c)
 
-    debug(zip2)
+    undebug(zip2)
     z = zip2(a2, b2)
+    zc = collect_rddlist(z)
+    
+    # Expect 2:
+    invoke(z@pairRDD, "count")
     
 
 }
