@@ -34,6 +34,8 @@ rddlist = function(sc, data, nparts=NULL){
     part_index = sort(rep(seq(nparts), length.out = n))
 
     parts = split(Rlist, part_index)
+
+    # A list of serialized parts
     serial_parts = lapply(parts, serialize, connection = NULL)
 
     # An RDD of the serialized R parts
@@ -328,7 +330,7 @@ setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
 function(x, i, j){
     javaindex = i - 1L
     jlist = invoke(x@pairRDD, "lookup", javaindex)
-    convertJListToRList(jlist, flatten=FALSE)
+    convertJListToRList(jlist, flatten=TRUE)
 })
 
 
@@ -498,14 +500,79 @@ if(TRUE){
     #debugonce(convertJListToRList)
     zc2 = collect_rddlist(z2)
 
+    # These should be the same:
+    all.equal(zc2[[1]], z2[[1]])
+
     # Works fine
     wrappedsum = function(arglist) do.call(sum, arglist)
     out3 = lapply(zc2, wrappedsum)
 
     # Fails    
     outrdd = lapply(z2, wrappedsum)
-    out4 = collect_rddlist(outrdd)
+    #out4 = collect_rddlist(outrdd)
 
+    # two lists, which is what I want
+    lapply(zc2, class)
+
+    # two lists containing the classes of all the elements
+    # => applying the function happened inside the lists.
     collect_rddlist(lapply(z2, class))
+
+    # What if we force a collect, and go from there?
+    # Idea: If we have the raw bytes back we can create it again using the
+    # static method.
+    invoke(z2@pairRDD, "collect")
+
+    # First let's check if it works when it's given the right list in the
+    # first place.
+    withlists = rddlist(sc, zc2)
+
+    # seems to have gotten another layer of nesting.
+    collect_rddlist(withlists)
+    
+    # Comparing this with the above we see the nesting in the 2nd and 3rd
+    # layer is different
+    collect_rddlist(lapply(z2, list))
+
+    # This returns two "list", correct except for the extra layer of
+    # nesting.
+    out = collect_rddlist(lapply(withlists, class))
+    out
    
+    collect_rddlist(lapply(z2, class))
+
+    collect_rddlist(lapply(z2, function(x) x))
+
+    # class scala.collection.convert.Wrappers$SeqWrapper
+    # Documentation: 
+    zbytes = invoke(invoke(z2@pairRDD, "values"), "collect")
+
+    # Works - I believe this is a Java method
+    invoke(zbytes, "size")
+    # Fails - Scala method of a sequence
+    #invoke(zbytes, "length")
+    # So can we make it into a 
+
+    # This looks correct, just like zc2 above
+    convertJListToRList(zbytes, flatten=FALSE)[[1]]
+
+    # From the docs the last arg here should be a sequence of byte arrays.
+    # http://spark.apache.org/docs/latest/api/java/org/apache/spark/api/r/RRDD.html#createRDDFromArray(org.apache.spark.api.java.JavaSparkContext,%20byte[][])
+    # It surprises me that zbytes is something different.
+
+    # Fails
+#    RDD = invoke_static(sc,
+#                        "org.apache.spark.api.r.RRDD",
+#                        "createRDDFromArray",
+#                        sparkapi::java_context(sc),
+#                        zbytes)
+
+    # Edward's approach doesn't seem to work- wouldn't expect it to since
+    # I've modified so much.
+#    compound.RDD <- lapply(z2, function(x) list(x[[1]][[1]], lapply(x, 
+#            function(y) y[[2]])))
+#    collect_rddlist(compound.RDD)
+    
+ 
+
 }
