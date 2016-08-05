@@ -152,6 +152,36 @@ function(X, FUN){
 })
 
 
+zip2 = function(a, b){
+    aval = invoke(a@pairRDD, "values")
+    bval = invoke(b@pairRDD, "values")
+    zipped = invoke(aval, "zip", bval)
+    combine = function(partIndex, part) {
+        lapply(part, function(x) x)
+    }
+    # Copying logic from lapply - come back and refactor
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       invoke(zipped, "rdd"),
+                       serialize(combine, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    JavaRDD = invoke(pairs, "asJavaRDD")
+    # Reuse the old index to create the PairRDD
+    index = invoke(a@pairRDD, "keys")
+    pairRDD = invoke(index, "zip", JavaRDD)
+    output = a
+    output@pairRDD = pairRDD
+    output
+}
+
+
 # Zips rdds together. For rdd's a, b, c:
 # 
 # zip(a, b, c) -> rdd[ list(a1, b1, c1), ... , list(an, bn, cn) ]
@@ -387,5 +417,9 @@ if(TRUE){
     a2 = rddlist(sc, a)
     b2 = rddlist(sc, b)
     c2 = rddlist(sc, c)
+
+    debug(zip2)
+    z = zip2(a2, b2)
+    
 
 }
