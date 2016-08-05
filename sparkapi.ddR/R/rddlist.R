@@ -466,9 +466,9 @@ if(TRUE){
     # Zipped RDD's
 
     # Here's what we want to happen in local R
-    a = list(1:10, rnorm(10))
-    b = list(1:5, rnorm(5))
-    c = list(1:20, rnorm(20))
+    a = list(1, rnorm(1))
+    b = list(1:2, rnorm(2))
+    c = list(1:3, rnorm(3))
 
     # This is the type of operation to emulate:
     out1 = mapply(sum, a, b, c)
@@ -480,27 +480,32 @@ if(TRUE){
     out2 = lapply(zipped, function(x) do.call(sum, x))
 
     # Now with RDD's
-    a2 = rddlist(sc, a)
-    b2 = rddlist(sc, b)
-    c2 = rddlist(sc, c)
+    ar = rddlist(sc, a)
+    br = rddlist(sc, b)
+    cr = rddlist(sc, c)
 
     #debugonce(zip2)
 
-    z = zip2(a2, b2)
+    z = zip2(ar, br)
     zc = collect_rddlist(z)
-    # Could it be an issue with flattening when converting from Jlist?
 
     vals = invoke(z@pairRDD, "values")
 
-    # Expect 2, and get 2 in both cases
-    invoke(z@pairRDD, "count")
-    invoke(vals,  "count")
-    
-    # Check what these values look like
-    # This is just what I expected.
-    first = unserialize(invoke(vals, "first"))
+    z2 = zip2(z, cr)
 
-    #collected_vals = invoke(vals, "collect")
-    #invoke(collected_vals, "_1")
+    unserialize(invoke(invoke(z2@pairRDD, "values"), "first"))
 
+    #debugonce(convertJListToRList)
+    zc2 = collect_rddlist(z2)
+
+    # Works fine
+    wrappedsum = function(arglist) do.call(sum, arglist)
+    out3 = lapply(zc2, wrappedsum)
+
+    # Fails    
+    outrdd = lapply(z2, wrappedsum)
+    out4 = collect_rddlist(outrdd)
+
+    collect_rddlist(lapply(z2, class))
+   
 }
