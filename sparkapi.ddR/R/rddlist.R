@@ -12,11 +12,21 @@ setClass("rddlist", slots = list(sc = "spark_connection",
                                  classTag = "spark_jobj"))
 
 
-setMethod("initialize", "rddlist",
-function(.Object, sc, Rlist, nparts){
-        
+rddlist = function(sc, data, nparts=NULL){
+
+    if(class(data) == "rddlist"){
+        return(data)
+    }
+
+    if(!is.list(data)){
+        data = list(data)
+    }
+
+    Rlist = data
+
     n = length(Rlist)
-    nparts = max(nparts, n)
+    if(is.null(nparts)) nparts = n
+    if(nparts > n) stop("Use a smaller number of partitions.")
 
     # Strategy is to have about the same number of list elements in each
     # element of the RDD. This makes sense if the list elements are roughly the
@@ -34,6 +44,10 @@ function(.Object, sc, Rlist, nparts){
                         sparkapi::java_context(sc),
                         serial_parts)
 
+    # This is all written specifically for bytes, so should be fine to let this 
+    # classTag have a slot.
+    classTag = invoke(RDD, "classTag")  # Array[byte]
+
     # (data, integer) pairs
     backwards = invoke(RDD, "zipWithIndex")
 
@@ -43,15 +57,52 @@ function(.Object, sc, Rlist, nparts){
     # The pairRDD of (integer, data) 
     pairRDD = invoke(index, "zip", RDD)
 
-    .Object@sc = sc
-    .Object@pairRDD = pairRDD
-    .Object@nparts = nparts
-    # This is all written specifically for bytes, so should be fine to let this 
-    # classTag have a slot.
-    .Object@classTag = invoke(RDD, "classTag")  # Array[byte]
-    .Object
-})
+    new("rddlist", sc = sc, pairRDD = pairRDD, nparts = nparts,
+        classTag = classTag)
+}
 
+
+# TODO: What exactly is the initialize method doing? Do I need it?
+#setMethod("initialize", "rddlist",
+#function(.Object, sc, Rlist, nparts){
+#        
+#    n = length(Rlist)
+#    nparts = max(nparts, n)
+#
+#    # Strategy is to have about the same number of list elements in each
+#    # element of the RDD. This makes sense if the list elements are roughly the
+#    # same size.
+#    part_index = sort(rep(seq(nparts), length.out = n))
+#
+#    parts = split(x, part_index)
+#    serial_parts = lapply(parts, serialize, connection = NULL)
+#
+#    # An RDD of the serialized R parts
+#    # This is class org.apache.spark.api.java.JavaRDD
+#    RDD = invoke_static(sc,
+#                        "org.apache.spark.api.r.RRDD",
+#                        "createRDDFromArray",
+#                        sparkapi::java_context(sc),
+#                        serial_parts)
+#
+#    # (data, integer) pairs
+#    backwards = invoke(RDD, "zipWithIndex")
+#
+#    # An RDD of integers
+#    index = invoke(backwards, "values")
+#
+#    # The pairRDD of (integer, data) 
+#    pairRDD = invoke(index, "zip", RDD)
+#
+#    .Object@sc = sc
+#    .Object@pairRDD = pairRDD
+#    .Object@nparts = nparts
+#    # This is all written specifically for bytes, so should be fine to let this 
+#    # classTag have a slot.
+#    .Object@classTag = invoke(RDD, "classTag")  # Array[byte]
+#    .Object
+#})
+#
 
 setMethod("lapply", signature(X = "rddlist", FUN = "function"),
 function(X, FUN){
@@ -213,8 +264,10 @@ if(TRUE){
     # Spark RDD way
     sc <- start_shell(master = "local")
 
-    xrdd = new("rddlist", sc, x, nparts = 2L)
+    xrdd = rddlist(sc, x, nparts = 2L)
+
     fxrdd = lapply(xrdd, FUN)
+
 }
 
 if(FALSE){
@@ -332,8 +385,12 @@ if(TRUE){
 
     # Now with RDD's
     # Hmm, these are all the same? Why?
-    a2 = new("rddlist", sc, a, nparts = 2L)
-    b2 = new("rddlist", sc, b, nparts = 2L)
-    c2 = new("rddlist", sc, c, nparts = 2L)
+    a2 = rddlist(sc, a, nparts = 2L)
+    b2 = rddlist(sc, b, nparts = 2L)
+    c2 = rddlist(sc, c, nparts = 2L)
+    
+    # They seem to reference different Java objects...
+    a2@pairRDD
+    b2@pairRDD
 
 }
