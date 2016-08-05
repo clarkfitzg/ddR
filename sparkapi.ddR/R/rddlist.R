@@ -33,7 +33,7 @@ rddlist = function(sc, data, nparts=NULL){
     # same size.
     part_index = sort(rep(seq(nparts), length.out = n))
 
-    parts = split(x, part_index)
+    parts = split(Rlist, part_index)
     serial_parts = lapply(parts, serialize, connection = NULL)
 
     # An RDD of the serialized R parts
@@ -384,13 +384,8 @@ if(TRUE){
     out2 = lapply(zipped, function(x) do.call(sum, x))
 
     # Now with RDD's
-    # Hmm, these are all the same? Why?
-    a2 = rddlist(sc, a, nparts = 2L)
-    b2 = rddlist(sc, b, nparts = 2L)
-    c2 = rddlist(sc, c, nparts = 2L)
-    
-    # They seem to reference different Java objects...
-    a2@pairRDD
-    b2@pairRDD
+    a2 = rddlist(sc, a)
+    b2 = rddlist(sc, b)
+    c2 = rddlist(sc, c)
 
 }
