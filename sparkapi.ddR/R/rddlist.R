@@ -198,6 +198,16 @@ partitionFunc <- function(partIndex, part) {
   }
 
 
+partitionFunc <- function(partIndex, part) {
+      mapply(
+        function(k, v) { list(k, v) },
+        head(part),
+        tail(part),
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE)
+  }
+
+
 zip2 = function(a, b){
     aval = invoke(a@pairRDD, "values")
     bval = invoke(b@pairRDD, "values")
@@ -205,8 +215,9 @@ zip2 = function(a, b){
     zipped = invoke(aval, "zip", bval)
     # class org.apache.spark.rdd.ZippedPartitionsRDD2
     # This has the same number of elements as the input a.
+    # Converting to rdd seems necessary for the invoke_new below
     RDD = invoke(zipped, "rdd")
-    FUN = function(x) list(x[1], x[2])
+    FUN = function(x) x
     FUN_applied = function(partIndex, part) {
         lapply(part, FUN)
     }
@@ -317,7 +328,7 @@ setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
 function(x, i, j){
     javaindex = i - 1L
     jlist = invoke(x@pairRDD, "lookup", javaindex)
-    convertJListToRList(jlist, flatten=TRUE)
+    convertJListToRList(jlist, flatten=FALSE)
 })
 
 
@@ -327,7 +338,7 @@ function(x, i, j){
 collect_rddlist = function(rddlist){
     values = invoke(rddlist@pairRDD, "values")
     collected = invoke(values, "collect")
-    convertJListToRList(collected, flatten = TRUE)
+    convertJListToRList(collected, flatten = FALSE)
 }
 
 
@@ -459,7 +470,7 @@ if(TRUE){
     b = list(1:5, rnorm(5))
     c = list(1:20, rnorm(20))
 
-    # This is the operation to emulate:
+    # This is the type of operation to emulate:
     out1 = mapply(sum, a, b, c)
 
     # If it's zipped then we can do this with lapply. Which was the whole
@@ -473,12 +484,23 @@ if(TRUE){
     b2 = rddlist(sc, b)
     c2 = rddlist(sc, c)
 
-    undebug(zip2)
+    #debugonce(zip2)
+
     z = zip2(a2, b2)
     zc = collect_rddlist(z)
-    
-    # Expect 2:
+    # Could it be an issue with flattening when converting from Jlist?
+
+    vals = invoke(z@pairRDD, "values")
+
+    # Expect 2, and get 2 in both cases
     invoke(z@pairRDD, "count")
+    invoke(vals,  "count")
     
+    # Check what these values look like
+    # This is just what I expected.
+    first = unserialize(invoke(vals, "first"))
+
+    #collected_vals = invoke(vals, "collect")
+    #invoke(collected_vals, "_1")
 
 }
