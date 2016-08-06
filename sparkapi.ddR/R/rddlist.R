@@ -527,7 +527,8 @@ if(TRUE){
     # first place.
     withlists = rddlist(sc, zc2)
 
-    # seems to have gotten another layer of nesting.
+    # seems to have gotten another layer of nesting in this process.
+    # But this is not a problem, I can always deal with it.
     collect_rddlist(withlists)
     
     # Comparing this with the above we see the nesting in the 2nd and 3rd
@@ -544,7 +545,7 @@ if(TRUE){
     collect_rddlist(lapply(z2, function(x) x))
 
     # class scala.collection.convert.Wrappers$SeqWrapper
-    # Where are the docs for it?
+    # Where are the docs for it? I want to see all available methods
     # Documentation: 
     zbytes = invoke(invoke(z2@pairRDD, "values"), "collect")
 
@@ -556,9 +557,30 @@ if(TRUE){
     # Sat Aug  6 09:56:22 KST 2016
     # Hypothesis: zbytes is a mysterious Java object 
     # I need to convert it into a sequence of byte arrays.
-    invoke(zbytes, "getClass")
+    zbyte_class = invoke(zbytes, "getClass")
 
-    invoke(
+    # Aha- see all the methods
+    invoke(zbyte_class, "getMethods")
+
+    # These are the bytes I expected.
+    invoke(zbytes, "get", 1L)
+
+    # Pretty cool- returns the thing straight back to R:
+    underlying = invoke(zbytes, "underlying")
+
+    # This is therefore a much simpler way to convert from Jlist to Rlist.
+    lapply(underlying, unserialize)
+
+    # Is it possible to convert this to a more tractable object?
+    # What it really needs to be is whatever lapply(zc2, serialize, connection = NULL))
+    # (R list of bytes) is converted to in Java,
+    # because that's what is working for the constructor.
+
+    # Fails
+    # invoke_new(sc, "ArrayList", zbytes)
+
+    # Fails
+    # invoke_new(sc, "ArrayList", invoke(zbytes, "iterator"))
 
     # This looks correct, just like zc2 above
     convertJListToRList(zbytes, flatten=FALSE)
@@ -572,9 +594,10 @@ if(TRUE){
 
     zbytes2 = invoke(zbytes2, "collect")
 
+    invoke(zbytes2, "get", 1L)
+
     # Works, this is the same as zc2.
     convertJListToRList(zbytes2, flatten=FALSE)
-    
 
 
     # From the docs the last arg here should be a sequence of byte arrays.
