@@ -1,12 +1,131 @@
+# Perform zip or cartesian between elements from two RDDs in each partition
+# param
+#   rdd An RDD.
+#   zip A boolean flag indicating this call is for zip operation or not.
+# return value
+#   A result RDD.
+mergePartitions <- function(rdd, zip) {
+  serializerMode <- getSerializedMode(rdd)
+  partitionFunc <- function(partIndex, part) {
+    len <- length(part)
+    if (len > 0) {
+      if (serializerMode == "byte") {
+        lengthOfValues <- part[[len]]
+        lengthOfKeys <- part[[len - lengthOfValues]]
+        stopifnot(len == lengthOfKeys + lengthOfValues)
 
-partitionFunc <- function(partIndex, part) {
+        # For zip operation, check if corresponding partitions
+        # of both RDDs have the same number of elements.
+        if (zip && lengthOfKeys != lengthOfValues) {
+          stop(paste("Can only zip RDDs with same number of elements",
+                     "in each pair of corresponding partitions."))
+        }
+
+        if (lengthOfKeys > 1) {
+          keys <- part[1 : (lengthOfKeys - 1)]
+        } else {
+          keys <- list()
+        }
+        if (lengthOfValues > 1) {
+          values <- part[ (lengthOfKeys + 1) : (len - 1) ]
+        } else {
+          values <- list()
+        }
+
+        if (!zip) {
+          return(mergeCompactLists(keys, values))
+        }
+      } else {
+        keys <- part[c(TRUE, FALSE)]
+        values <- part[c(FALSE, TRUE)]
+      }
       mapply(
         function(k, v) { list(k, v) },
-        head(part),
-        tail(part),
+        keys,
+        values,
         SIMPLIFY = FALSE,
         USE.NAMES = FALSE)
+    } else {
+      part
+    }
   }
+
+  PipelinedRDD(rdd, partitionFunc)
+}
+
+# Perform zip or cartesian between elements from two RDDs in each partition
+# param
+#   rdd An RDD.
+#   zip A boolean flag indicating this call is for zip operation or not.
+# return value
+#   A result RDD.
+mergePartitions2 <- function(rdd, zip=TRUE) {
+  serializerMode <- "byte"
+  partitionFunc <- function(partIndex, part) {
+    len <- length(part)
+    if (len > 0) {
+      if (serializerMode == "byte") {
+        lengthOfValues <- 1
+        lengthOfKeys <- 1
+        stopifnot(len == lengthOfKeys + lengthOfValues)
+
+        # For zip operation, check if corresponding partitions
+        # of both RDDs have the same number of elements.
+        if (zip && lengthOfKeys != lengthOfValues) {
+          stop(paste("Can only zip RDDs with same number of elements",
+                     "in each pair of corresponding partitions."))
+        }
+
+        if (lengthOfKeys > 1) {
+          keys <- part[1 : (lengthOfKeys - 1)]
+        } else {
+          keys <- list()
+        }
+        if (lengthOfValues > 1) {
+          values <- part[ (lengthOfKeys + 1) : (len - 1) ]
+        } else {
+          values <- list()
+        }
+
+        if (!zip) {
+          return(mergeCompactLists(keys, values))
+        }
+      } else {
+        keys <- part[c(TRUE, FALSE)]
+        values <- part[c(FALSE, TRUE)]
+      }
+      mapply(
+        function(k, v) { list(k, v) },
+        keys,
+        values,
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE)
+    } else {
+      part
+    }
+  }
+
+    FUN = partitionFunc
+    FUN_applied = function(partIndex, part) {
+        lapply(part, FUN)
+    }
+    FUN_clean = cleanClosure(FUN_applied)
+
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # Same length
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       RDD,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    pairs
+}
 
 
 zip2 = function(a, b){
@@ -62,6 +181,8 @@ ziprdd = function(...){
 
 if(TRUE){
 
+    source('rddlist.R')
+
     # Zipped RDD's
 
     # Here's what we want to happen in local R
@@ -82,11 +203,26 @@ if(TRUE){
     ar = rddlist(sc, a)
     br = rddlist(sc, b)
     cr = rddlist(sc, c)
+}
 
+if(TRUE){
+
+    v = invoke(ar@pairRDD, "values")
+
+    invoke(v, "rdd")
+
+    # These are MapPartitionsRDD. Any relation to what mergePartition does?
+
+}
+
+
+if(FALSE){
     #debugonce(zip2)
 
     z = zip2(ar, br)
     zc = collect_rddlist(z)
+
+    collect_rddlist(lapply(z, class))
 
     vals = invoke(z@pairRDD, "values")
 
@@ -219,5 +355,4 @@ if(TRUE){
     
 # The problem may be in the nesting... so maybe the solution is to remove
 # the nesting by converting back into bytes.
-
 }
