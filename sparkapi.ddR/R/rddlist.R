@@ -544,6 +544,7 @@ if(TRUE){
     collect_rddlist(lapply(z2, function(x) x))
 
     # class scala.collection.convert.Wrappers$SeqWrapper
+    # Where are the docs for it?
     # Documentation: 
     zbytes = invoke(invoke(z2@pairRDD, "values"), "collect")
 
@@ -551,10 +552,30 @@ if(TRUE){
     invoke(zbytes, "size")
     # Fails - Scala method of a sequence
     #invoke(zbytes, "length")
-    # So can we make it into a 
+
+    # Sat Aug  6 09:56:22 KST 2016
+    # Hypothesis: zbytes is a mysterious Java object 
+    # I need to convert it into a sequence of byte arrays.
+    invoke(zbytes, "getClass")
+
+    invoke(
 
     # This looks correct, just like zc2 above
-    convertJListToRList(zbytes, flatten=FALSE)[[1]]
+    convertJListToRList(zbytes, flatten=FALSE)
+
+    # Can we convert from R back to something like zbytes? Yes.
+    zbytes2 = invoke_static(sc,
+                        "org.apache.spark.api.r.RRDD",
+                        "createRDDFromArray",
+                        sparkapi::java_context(sc),
+                        lapply(zc2, serialize, connection = NULL))
+
+    zbytes2 = invoke(zbytes2, "collect")
+
+    # Works, this is the same as zc2.
+    convertJListToRList(zbytes2, flatten=FALSE)
+    
+
 
     # From the docs the last arg here should be a sequence of byte arrays.
     # http://spark.apache.org/docs/latest/api/java/org/apache/spark/api/r/RRDD.html#createRDDFromArray(org.apache.spark.api.java.JavaSparkContext,%20byte[][])
@@ -573,6 +594,7 @@ if(TRUE){
 #            function(y) y[[2]])))
 #    collect_rddlist(compound.RDD)
     
- 
+# The problem may be in the nesting... so maybe the solution is to remove
+# the nesting by converting back into bytes.
 
 }
