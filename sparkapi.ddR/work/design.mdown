@@ -262,3 +262,51 @@ mergePartitions <- function(zipped_rdd){
 ```
 
 Judging by the other code, `part` is a list. 
+
+Ok, seems like I got over the problem. The crux is to understand exactly
+what kind of function `org.apache.spark.api.r.RRDD` expects and how it
+operates. I haven't seen this in any docs- just learning it through
+experiment and reading source code.
+
+# Spark R API
+
+The class
+[`org.apache.spark.api.r.RRDD`](http://spark.apache.org/docs/latest/api/java/org/apache/spark/api/r/RRDD.html)
+is the main way to interact directly with Spark from R. These interactions
+happen through the constructor:
+
+```
+public RRDD(RDD<T> parent,
+    byte[] func,
+    String deserializer,
+    String serializer,
+    byte[] packageNames,
+    Object[] broadcastVars,
+    scala.reflect.ClassTag<T> evidence$4)
+```
+
+__RDD__: The parent RDD to apply the function to. When this is collected
+in Spark it's a sequence of byte arrays, with each byte array corresponding
+to a part which is a list in R.
+
+__serializer / deserializer__: This can be string or bytes. For simplicity
+we only use bytes.
+
+__func__: A serialized closure (function + environment) with signature
+`function(partIndex, part)`.
+
+__packageNames__: 
+
+__broadcastVars__: 
+
+__evidence$4__: Don't know what this is, but have been using something
+related to bytes.
+
+### Programming model
+
+
+### Misc.
+
+Glancing through the scala source, it seems that new R processes start
+every time `.compute()` is called on an RRDD. Haven't yet checked, but this
+may be what the Pipelined RDD's are for.
