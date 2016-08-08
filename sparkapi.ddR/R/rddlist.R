@@ -175,11 +175,19 @@ function(x, i, j){
 })
 
 
-zip2 = function(a, b){
-    a_nested = lapply(a, list)
-    b_nested = lapply(b, list)
-    aval = invoke(a_nested@pairRDD, "values")
-    bval = invoke(b_nested@pairRDD, "values")
+# a_nested = TRUE means that a is already in the form of a nested list with
+# two layers: [ [a1], [a2], ... , [an] ]
+# 
+zip2 = function(a, b, a_nested = FALSE, b_nested = FALSE){
+    # They must be nested for this to work
+    if(!a_nested){
+        a = lapply(a, list)
+    }
+    if(!b_nested){
+        b = lapply(b, list)
+    }
+    aval = invoke(a@pairRDD, "values")
+    bval = invoke(b@pairRDD, "values")
     # class org.apache.spark.api.java.JavaPairRDD
     zipped = invoke(aval, "zip", bval)
     # class org.apache.spark.rdd.ZippedPartitionsRDD2
@@ -212,6 +220,27 @@ zip2 = function(a, b){
     output = a
     output@pairRDD = pairRDD
     output
+}
+
+
+zip_rdd = function(...){
+    args = list(...)
+    a = args[[1]]
+    n = length(args)
+
+    zipped = lapply(a, list)
+
+    if(n == 1L){
+        # Easy out for trivial case
+        # Note zipping will always have the same nested structure
+        return(zipped)
+    }
+
+    # A 'reduce' operation
+    for(i in 2:n){
+        zipped = zip2(zipped, args[[i]], a_nested = TRUE)
+    }
+    zipped
 }
 
 
@@ -264,17 +293,23 @@ test_that("zip RDD's", {
     ar = rddlist(sc, a)
     br = rddlist(sc, b)
 
-    zipped = Map(list, a, b)
-    zipped_rdd = zip2(ar, br)
+    abzip = Map(list, a, b)
+    abzip_rdd = zip2(ar, br)
 
-    zipped_rdd_collected = collect_rddlist(zipped_rdd)
+    abzip_rdd_collected = collect_rddlist(abzip_rdd)
 
-    a_nested = lapply(a, list)
-    b_nested = lapply(b, list)
+    expect_identical(abzip, abzip_rdd_collected)
 
-    collect_rddlist(rddlist(sc, a_nested))
+    # Now for 3+
+    c = list(101:110, rnorm(5), rnorm(7))
+    cr = rddlist(sc, c)
 
-    expect_identical(zipped, zipped_rdd_collected)
+    abczip = Map(list, a, b, c)
+    abczip_rdd = zip_rdd(ar, br, cr)
+
+    abczip_rdd_collected = collect_rddlist(abczip_rdd)
+
+    expect_identical(abczip, abczip_rdd_collected)
 
 })
 
