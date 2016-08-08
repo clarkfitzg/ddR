@@ -214,6 +214,84 @@ zip2_mergePartitions = function(a, b){
 }
 
 
+zip3 = function(a, b){
+    aval = invoke(a@pairRDD, "values")
+    bval = invoke(b@pairRDD, "values")
+    # class org.apache.spark.api.java.JavaPairRDD
+    zipped = invoke(aval, "zip", bval)
+    # class org.apache.spark.rdd.ZippedPartitionsRDD2
+    # This has the same number of elements as the input a.
+    # Converting to rdd seems necessary for the invoke_new below
+    RDD = invoke(zipped, "rdd")
+    partitionFunc <- function(partIndex, part) {
+        c(length=length(part), class=class(part))
+    }
+    FUN_clean = cleanClosure(partitionFunc)
+    # Copying logic from lapply - come back and refactor
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # Same length
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       RDD,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    # Same length
+    JavaRDD = invoke(pairs, "asJavaRDD")
+    # Reuse the old index to create the PairRDD
+    index = invoke(a@pairRDD, "keys")
+    # Same length
+    pairRDD = invoke(index, "zip", JavaRDD)
+    output = a
+    output@pairRDD = pairRDD
+    output
+}
+
+
+zip4 = function(a, b){
+    aval = invoke(a@pairRDD, "values")
+    bval = invoke(b@pairRDD, "values")
+    # class org.apache.spark.api.java.JavaPairRDD
+    zipped = invoke(aval, "zip", bval)
+    # class org.apache.spark.rdd.ZippedPartitionsRDD2
+    # This has the same number of elements as the input a.
+    # Converting to rdd seems necessary for the invoke_new below
+    RDD = invoke(zipped, "rdd")
+    partitionFunc <- function(partIndex, part) {
+        part
+    }
+    FUN_clean = cleanClosure(partitionFunc)
+    # Copying logic from lapply - come back and refactor
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # Same length
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       RDD,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    # Same length
+    JavaRDD = invoke(pairs, "asJavaRDD")
+    # Reuse the old index to create the PairRDD
+    index = invoke(a@pairRDD, "keys")
+    # Same length
+    pairRDD = invoke(index, "zip", JavaRDD)
+    output = a
+    output@pairRDD = pairRDD
+    output
+}
+
+
 # Zips rdds together. For rdd's a, b, c:
 # 
 # zip(a, b, c) -> rdd[ list(a1, b1, c1), ... , list(an, bn, cn) ]
@@ -222,6 +300,53 @@ zip2_mergePartitions = function(a, b){
 # of the largest rdd
 ziprdd = function(...){
 
+}
+
+
+lapply2 = function(X, FUN){
+# TODO: support dots
+# function(X, FUN, ...){
+
+    # The function should be in a particular form for calling Spark's
+    # org.apache.spark.api.r.RRDD class constructor
+    FUN_applied = function(partIndex, part) {
+        FUN(part)
+    }
+    FUN_clean = cleanClosure(FUN_applied)
+
+    # TODO: Could come back and implement this functionality later
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # I believe broadcastArr holds these broadcast variables:
+    # https://spark.apache.org/docs/latest/programming-guide.html#broadcast-variables
+    # But what's the relation between broadcast variables, FUN's closure,
+    # and the ... argument?
+    
+    vals = invoke(X@pairRDD, "values")
+
+    # Use Spark to apply FUN
+    fxrdd <- invoke_new(X@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       invoke(vals, "rdd"),
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       X@classTag
+                       )
+
+    # Convert this into class org.apache.spark.api.java.JavaRDD so we can
+    # zip
+    JavaRDD = invoke(fxrdd, "asJavaRDD")
+
+    # Reuse the old index to create the PairRDD
+    index = invoke(X@pairRDD, "keys")
+    pairRDD = invoke(index, "zip", JavaRDD)
+   
+    output = X
+    output@pairRDD = pairRDD
+    output
 }
 
 
@@ -269,10 +394,25 @@ if(TRUE){
     zc = collect_rddlist(z)
 
     # This is different than what we had before - in an encouraging way.
+    # It actually seems to have done something closer to the zip we wanted.
     collect_rddlist(lapply(z, class))
 
     # From before:
     collect_rddlist(lapply(zip2(ar, br), class))
+
+    # Continuing to iterate on this:
+    collect_rddlist(zip3(ar, br))
+
+    # This shows that each "part" is a list of length 2. That's
+    # straightforward.
+
+    z4 = zip4(ar, br)
+
+    # Works and gives the result that I wanted.
+    collect_rddlist(lapply2(z4, class))
+
+    # OTOH, this we'd like to be (int, num, num) instead of list
+    collect_rddlist(lapply2(ar, class))
 
 }
 
