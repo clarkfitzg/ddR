@@ -363,12 +363,12 @@ if(TRUE){
     c = list(1:3, rnorm(3))
 
     # This is the type of operation to emulate:
-    out1 = mapply(sum, a, b, c)
+    out1 = mapply(sum, a, b)
 
     # If it's zipped then we can do this with lapply. Which was the whole
     # point to make it work with Spark.
     # A nested list ready for do.call
-    zipped = Map(list, a, b, c)
+    zipped = Map(list, a, b)
     out2 = lapply(zipped, function(x) do.call(sum, x))
 
     # Now with RDD's
@@ -413,6 +413,11 @@ if(TRUE){
 
     # OTOH, this we'd like to be (int, num, num) instead of list
     collect_rddlist(lapply2(ar, class))
+
+    out4 = lapply2(z4, function(x) do.call(sum, x))
+
+    # Matches out1 and out2 above. Yes!!
+    out4 = collect_rddlist(out4)
 
 }
 
