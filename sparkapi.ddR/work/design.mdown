@@ -287,7 +287,8 @@ public RRDD(RDD<T> parent,
 
 __RDD__: The parent RDD to apply the function to. When this is collected
 in Spark it's a sequence of byte arrays, with each byte array corresponding
-to a part which is a list in R.
+to a part which is an R object. Once zipping happens the R objects are
+lists containing each of the zipped elements.
 
 __serializer / deserializer__: This can be string or bytes. For simplicity
 we only use bytes.

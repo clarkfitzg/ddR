@@ -14,8 +14,9 @@ setClass("rddlist", slots = list(sc = "spark_connection",
                                  classTag = "spark_jobj"))
 
 
-# This rddlist is pretty basic. Given an R list it loads it into Spark with
-# each element of the list corresponding to an element of the Spark RDD.
+# A basic R list implemented in Spark.
+# 
+# Each element of the list local R list corresponds to an element of the Spark RDD.
 rddlist = function(sc, data){
 
     if(class(data) == "rddlist"){
@@ -101,70 +102,6 @@ function(X, FUN){
     output
 })
 
-# do_mapply(driver, func, ..., MoreArgs = list(), output.type = "dlist",
-# nparts = NULL, combine = "default")
-# do_mapply will call this function
-# driver not necessary since that's carried around in the spark context
-#
-# Set cache = TRUE to use Spark to cache the result the first time it's
-# computed. This could be a problem as the data pushes the limits of system
-# memory.
-#
-mapply_rddlist = function(func, ..., MoreArgs = list(),
-            output.type = "dlist", nparts = NULL, combine = "default",
-            cache = CACHE_DEFAULT)
-{
-    dots = list(...)
-    #browser()
-    # TODO: remove this constraint
-    if(length(dots) > 1) stop("multiple arguments not yet supported")
-    x = dots[[1]]
-
-    # The function should be in a particular form for calling Spark's
-    # org.apache.spark.api.r.RRDD class constructor
-    func_applied = function(partIndex, part) {
-        #lapply(part, func)
-        do.call(lapply, c(list(part, func), MoreArgs))
-    }
-    func_clean = cleanClosure(func_applied)
-
-    # TODO: Could come back and implement this functionality later
-    packageNamesArr <- serialize(NULL, NULL)
-    broadcastArr <- list()
-    # I believe broadcastArr holds these broadcast variables:
-    # https://spark.apache.org/docs/latest/programming-guide.html#broadcast-variables
-    # But what's the relation between broadcast variables, func's closure,
-    # and the ... argument?
-    
-    vals = invoke(x@pairRDD, "values")
-
-    # Use Spark to apply func
-    fxrdd <- invoke_new(x@sc,
-                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
-                       invoke(vals, "rdd"),
-                       serialize(func_clean, NULL),
-                       "byte",  # name of serializer / deserializer
-                       "byte",  # name of serializer / deserializer
-                       packageNamesArr,  
-                       broadcastArr,
-                       x@classTag
-                       )
-
-    # Convert this into class org.apache.spark.api.java.JavaRDD so we can
-    # zip
-    JavaRDD = invoke(fxrdd, "asJavaRDD")
-
-    # Reuse the old index to create the PairRDD
-    index = invoke(x@pairRDD, "keys")
-    pairRDD = invoke(index, "zip", JavaRDD)
-
-    if(cache) invoke(pairRDD, "cache")
-   
-    output = x
-    output@pairRDD = pairRDD
-    output
-}
-
 
 setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
 function(x, i, j){
@@ -249,9 +186,26 @@ zip_rdd = function(...){
 }
 
 
+# A version of mapply that works with rddlists
+# ... should be rddlists
+mapply_rdd = function(FUN, ...){
+
+    # TODO: add recycling, Moreargs
+
+    FUN = match.fun(FUN)
+    zipped = zip_rdd(...)
+    
+    # The parts in zipped are always lists
+    zipFUN = function(zipped_part){
+        do.call(FUN, zipped_part)
+    }
+
+    lapply(zipped, zipFUN)
+}
+
 
 # Collects and unserializes from Spark back into local R.
-collect_rddlist = function(rddlist){
+collect_rdd = function(rddlist){
     values = invoke(rddlist@pairRDD, "values")
     collected = invoke(values, "collect")
     rawlist = invoke(collected, "toArray")
@@ -279,7 +233,7 @@ xrdd = rddlist(sc, x)
 
 test_that("round trip serialization", {
 
-    collected = collect_rddlist(xrdd)
+    collected = collect_rdd(xrdd)
     expect_identical(x, collected)
 
 })
@@ -301,20 +255,20 @@ test_that("zipping several RDD's", {
     abzip = Map(list, a, b)
     abzip_rdd = zip2(ar, br)
 
-    abzip_rdd_collected = collect_rddlist(abzip_rdd)
+    abzip_rdd_collected = collect_rdd(abzip_rdd)
 
     expect_identical(abzip, abzip_rdd_collected)
 
-    expect_identical(abzip, collect_rddlist(zip_rdd(ar, br)))
+    expect_identical(abzip, collect_rdd(zip_rdd(ar, br)))
 
     # Now for 3+
     c = list(101:110, rnorm(5), rnorm(7))
     cr = rddlist(sc, c)
 
-    abczip = Map(list, a, b, c)
-    abczip_rdd = zip_rdd(ar, br, cr)
+    abczip = Map(list, a, b, c, a)
+    abczip_rdd = zip_rdd(ar, br, cr, ar)
 
-    abczip_rdd_collected = collect_rddlist(abczip_rdd)
+    abczip_rdd_collected = collect_rdd(abczip_rdd)
 
     expect_identical(abczip, abczip_rdd_collected)
 
@@ -324,17 +278,29 @@ test_that("lapply", {
 
     first5 = function(x) x[1:5]
     fx = lapply(x, first5)
-    fxrdd = collect_rddlist(lapply(xrdd, first5))
+    fxrdd = collect_rdd(lapply(xrdd, first5))
 
     expect_identical(fx, fxrdd)
+})
+
+test_that("mapply", {
+
+    y = list(21:30, LETTERS, rnorm(10))
+    yrdd = rddlist(sc, y)
+   
+    xy = mapply(c, x, y)
+
+    xyrdd = collect_rdd(mapply_rdd(c, xrdd, yrdd))
+
+    expect_identical(xy, xyrdd)
 })
 
 }
 
 if(FALSE){
-    x2 = collect_rddlist(xrdd)
+    x2 = collect_rdd(xrdd)
 
-    fx2 = collect_rddlist(fxrdd)
+    fx2 = collect_rdd(fxrdd)
 
     xrdd[[2]]
 
@@ -348,7 +314,7 @@ if(FALSE){
     ffxrdd = lapply(fxrdd, FUN2)
     
     # Yes! Works!
-    collect_rddlist(ffxrdd)
+    collect_rdd(ffxrdd)
 
     # Is it lazy? Yes
     ############################################################
@@ -366,7 +332,7 @@ if(FALSE){
     ffxrdd = lapply(fxrdd, hard1)
 
     # Takes time for this one => lazy!
-    #collect_rddlist(ffxrdd)
+    #collect_rdd(ffxrdd)
     
     # Does it cache results? Not by default, but easy to turn on
     ############################################################
@@ -416,13 +382,13 @@ if(FALSE){
     xrdd = new("rddlist", sc, x, nparts = 2L)
     fxrdd = mapply_rdd_list(sum, xrdd, MoreArgs = list(na.rm = TRUE))
 
-    out = collect_rddlist(fxrdd)
+    out = collect_rdd(fxrdd)
 
     # Verify caching behavior
     fxrdd = mapply_rdd_list(hard1, xrdd)
 
     # Works. This is fast the 2nd time.
-    collect_rddlist(fxrdd)
+    collect_rdd(fxrdd)
 
 }
 
