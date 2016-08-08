@@ -3,6 +3,7 @@ require("methods")
 #' @importFrom sparkapi invoke invoke_new invoke_static
 
 # TODO: Would be better to turn this on as an option in Spark
+# Not using caching currently while developing
 CACHE_DEFAULT = TRUE
 
 # Use S4 for consistency with ddR
@@ -111,7 +112,6 @@ function(x, i, j){
     bytes = invoke(javabytes, "toArray")[[1]]
     unserialize(bytes)
 })
-
 
 
 # a_nested = TRUE means that a is already in the form of a nested list with
