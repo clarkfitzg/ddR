@@ -168,6 +168,52 @@ zip2 = function(a, b){
 }
 
 
+zip2_mergePartitions = function(a, b){
+    aval = invoke(a@pairRDD, "values")
+    bval = invoke(b@pairRDD, "values")
+    # class org.apache.spark.api.java.JavaPairRDD
+    zipped = invoke(aval, "zip", bval)
+    # class org.apache.spark.rdd.ZippedPartitionsRDD2
+    # This has the same number of elements as the input a.
+    # Converting to rdd seems necessary for the invoke_new below
+    RDD = invoke(zipped, "rdd")
+    partitionFunc <- function(partIndex, part) {
+        keys <- part[[1]]
+        values <- part[[length(part)]]
+        mapply(
+          function(k, v) { list(k, v) },
+          keys,
+          values,
+          SIMPLIFY = FALSE,
+          USE.NAMES = FALSE)
+    }
+    FUN_clean = cleanClosure(partitionFunc)
+    # Copying logic from lapply - come back and refactor
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # Same length
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       RDD,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    # Same length
+    JavaRDD = invoke(pairs, "asJavaRDD")
+    # Reuse the old index to create the PairRDD
+    index = invoke(a@pairRDD, "keys")
+    # Same length
+    pairRDD = invoke(index, "zip", JavaRDD)
+    output = a
+    output@pairRDD = pairRDD
+    output
+}
+
+
 # Zips rdds together. For rdd's a, b, c:
 # 
 # zip(a, b, c) -> rdd[ list(a1, b1, c1), ... , list(an, bn, cn) ]
@@ -186,8 +232,9 @@ if(TRUE){
     # Zipped RDD's
 
     # Here's what we want to happen in local R
-    a = list(1, rnorm(1))
-    b = list(1:2, rnorm(2))
+    set.seed(37)
+    a = list(1:10, rnorm(5), rnorm(3))
+    b = list(21:30, rnorm(5), rnorm(3))
     c = list(1:3, rnorm(3))
 
     # This is the type of operation to emulate:
@@ -203,9 +250,33 @@ if(TRUE){
     ar = rddlist(sc, a)
     br = rddlist(sc, b)
     cr = rddlist(sc, c)
+
 }
 
 if(TRUE){
+    # Mon Aug  8 09:44:56 KST 2016
+    # Carefully checking everything out
+
+    set.seed(37)
+    a = list(1:10, rnorm(5), rnorm(3))
+    b = list(21:30, rnorm(5), rnorm(3))
+    ar = rddlist(sc, a)
+    br = rddlist(sc, b)
+ 
+    z = zip2_mergePartitions(ar, br)
+
+    # A list of three lists, which was the goal
+    zc = collect_rddlist(z)
+
+    # This is different than what we had before - in an encouraging way.
+    collect_rddlist(lapply(z, class))
+
+    # From before:
+    collect_rddlist(lapply(zip2(ar, br), class))
+
+}
+
+if(FALSE){
 
     v = invoke(ar@pairRDD, "values")
 
@@ -223,6 +294,9 @@ if(FALSE){
     zc = collect_rddlist(z)
 
     collect_rddlist(lapply(z, class))
+
+    # No help
+    # collect_rddlist(lapply(lapply(z, list), class))
 
     vals = invoke(z@pairRDD, "values")
 

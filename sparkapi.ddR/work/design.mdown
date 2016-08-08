@@ -212,3 +212,53 @@ dmapply(function(x, y) x, a, a + 1)
 To make this work in Spark the approach is to convert all the arguments to
 RDD's, zip them together, and then do a map on the zipped RDD.
 
+## Slow going with mapply
+
+Back to the drawing board with `mapply`. The trouble is that in Spark zipping
+RRDD's and using lapply is a commutative operation. Ie. these return the
+same thing:
+```
+lapply(zip(a, b), FUN)
+zip(lapply(a, FUN), lapply(b, FUN))
+```
+
+In local R this is not the case, because zip creates nested lists
+
+```
+zip(a, b) -> [[a1, b1], [a2, b2], ..., [an, bn]]
+```
+
+So the function `FUN` must operate on lists containing the elements, rather
+than the elements themselves.
+
+Last week I attempted to get around this by first zipping, collecting and then using
+`org.apache.spark.api.r.RRDD.createRDDFromArray`. This works, but it's
+wrong because it goes from an RDD -> a local Java array on the master,
+meaning that all the parallelism, resiliency, etc from Spark is gone. It's
+like collecting back into R and loading back into Spark. 
+
+```
+RDD -> Java Array on master -> RDD    :( Why even use Spark then?
+```
+
+However, SparkR is able to do this. The relevant (abridged) code for binary
+objects is their
+`mergePartitions` function:
+
+```
+mergePartitions <- function(zipped_rdd){
+  partitionFunc <- function(partIndex, part) {
+      keys <- part[1 : (lengthOfKeys - 1)]
+      values <- part[ (lengthOfKeys + 1) : (len - 1) ]
+      mapply(
+        function(k, v) { list(k, v) },
+        keys,
+        values,
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE)
+  }
+  PipelinedRDD(zipped_rdd, partitionFunc)
+}
+```
+
+Judging by the other code, `part` is a list. 
