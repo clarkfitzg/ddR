@@ -2,6 +2,7 @@ require("methods")
 # sparkapi provides all the invoke functions
 #' @importFrom sparkapi invoke invoke_new invoke_static
 
+# TODO: Would be better to turn this on as an option in Spark
 CACHE_DEFAULT = TRUE
 
 # Use S4 for consistency with ddR
@@ -175,9 +176,13 @@ function(x, i, j){
 })
 
 
+
 # a_nested = TRUE means that a is already in the form of a nested list with
 # two layers: [ [a1], [a2], ... , [an] ]
 # 
+# Would be better to have this function be private and zip_rdd be the
+# public exported function.
+#
 zip2 = function(a, b, a_nested = FALSE, b_nested = FALSE){
     # They must be nested for this to work
     if(!a_nested){
@@ -284,7 +289,7 @@ test_that("simple indexing", {
     expect_identical(x[[i]], xrdd[[i]])
 })
 
-test_that("zip RDD's", {
+test_that("zipping several RDD's", {
 
     set.seed(37)
     a = list(1:10, rnorm(5), rnorm(3))
@@ -299,6 +304,8 @@ test_that("zip RDD's", {
     abzip_rdd_collected = collect_rddlist(abzip_rdd)
 
     expect_identical(abzip, abzip_rdd_collected)
+
+    expect_identical(abzip, collect_rddlist(zip_rdd(ar, br)))
 
     # Now for 3+
     c = list(101:110, rnorm(5), rnorm(7))
