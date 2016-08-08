@@ -1,3 +1,4 @@
+require("methods")
 # sparkapi provides all the invoke functions
 #' @importFrom sparkapi invoke invoke_new invoke_static
 
@@ -12,6 +13,8 @@ setClass("rddlist", slots = list(sc = "spark_connection",
                                  classTag = "spark_jobj"))
 
 
+# This rddlist is pretty basic. Given an R list it loads it into Spark with
+# each element of the list corresponding to an element of the Spark RDD.
 rddlist = function(sc, data){
 
     if(class(data) == "rddlist"){
@@ -45,52 +48,10 @@ rddlist = function(sc, data){
     # The pairRDD of (integer, data) 
     pairRDD = invoke(index, "zip", RDD)
 
-    new("rddlist", sc = sc, pairRDD = pairRDD, nparts = nparts,
+    new("rddlist", sc = sc, pairRDD = pairRDD, nparts = length(data),
         classTag = classTag)
 }
 
-
-# TODO: What exactly is the initialize method doing? Do I need it?
-#setMethod("initialize", "rddlist",
-#function(.Object, sc, Rlist, nparts){
-#        
-#    n = length(Rlist)
-#    nparts = max(nparts, n)
-#
-#    # Strategy is to have about the same number of list elements in each
-#    # element of the RDD. This makes sense if the list elements are roughly the
-#    # same size.
-#    part_index = sort(rep(seq(nparts), length.out = n))
-#
-#    parts = split(x, part_index)
-#    serial_parts = lapply(parts, serialize, connection = NULL)
-#
-#    # An RDD of the serialized R parts
-#    # This is class org.apache.spark.api.java.JavaRDD
-#    RDD = invoke_static(sc,
-#                        "org.apache.spark.api.r.RRDD",
-#                        "createRDDFromArray",
-#                        sparkapi::java_context(sc),
-#                        serial_parts)
-#
-#    # (data, integer) pairs
-#    backwards = invoke(RDD, "zipWithIndex")
-#
-#    # An RDD of integers
-#    index = invoke(backwards, "values")
-#
-#    # The pairRDD of (integer, data) 
-#    pairRDD = invoke(index, "zip", RDD)
-#
-#    .Object@sc = sc
-#    .Object@pairRDD = pairRDD
-#    .Object@nparts = nparts
-#    # This is all written specifically for bytes, so should be fine to let this 
-#    # classTag have a slot.
-#    .Object@classTag = invoke(RDD, "classTag")  # Array[byte]
-#    .Object
-#})
-#
 
 setMethod("lapply", signature(X = "rddlist", FUN = "function"),
 function(X, FUN){
@@ -100,7 +61,7 @@ function(X, FUN){
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
     FUN_applied = function(partIndex, part) {
-        lapply(part, FUN)
+        FUN(part)
     }
     FUN_clean = cleanClosure(FUN_applied)
 
@@ -148,7 +109,7 @@ function(X, FUN){
 # computed. This could be a problem as the data pushes the limits of system
 # memory.
 #
-mapply_rdd_list = function(func, ..., MoreArgs = list(),
+mapply_rddlist = function(func, ..., MoreArgs = list(),
             output.type = "dlist", nparts = NULL, combine = "default",
             cache = CACHE_DEFAULT)
 {
@@ -204,31 +165,63 @@ mapply_rdd_list = function(func, ..., MoreArgs = list(),
 }
 
 
-frombytes = function(bytes){
-    data = unserialize(bytes)
-    if( length(data) != 1 ){
-        stop("This function does not support nested data")
-    }
-    data[[1]]
-}
-
-
 setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
 function(x, i, j){
     javaindex = as.integer(i - 1L)
-    jlist = invoke(x@pairRDD, "lookup", javaindex)
-    bytes = invoke(collected, "toArray")
-    frombytes(bytes)
-    #browser()
+    javabytes = invoke(x@pairRDD, "lookup", javaindex)
+    # The bytes come wrapped in a list
+    bytes = invoke(javabytes, "toArray")[[1]]
+    unserialize(bytes)
 })
 
 
-# Now relying on sparkapi to do the translation
+zip2 = function(a, b){
+    a_nested = lapply(a, list)
+    b_nested = lapply(b, list)
+    aval = invoke(a_nested@pairRDD, "values")
+    bval = invoke(b_nested@pairRDD, "values")
+    # class org.apache.spark.api.java.JavaPairRDD
+    zipped = invoke(aval, "zip", bval)
+    # class org.apache.spark.rdd.ZippedPartitionsRDD2
+    # This has the same number of elements as the input a.
+    # Converting to rdd seems necessary for the invoke_new below
+    RDD = invoke(zipped, "rdd")
+    partitionFunc <- function(partIndex, part) {
+        part
+    }
+    FUN_clean = cleanClosure(partitionFunc)
+    # Copying logic from lapply - come back and refactor
+    packageNamesArr <- serialize(NULL, NULL)
+    broadcastArr <- list()
+    # Same length
+    pairs <- invoke_new(a@sc,
+                       "org.apache.spark.api.r.RRDD",  # A new instance of this class
+                       RDD,
+                       serialize(FUN_clean, NULL),
+                       "byte",  # name of serializer / deserializer
+                       "byte",  # name of serializer / deserializer
+                       packageNamesArr,  
+                       broadcastArr,
+                       a@classTag
+                       )
+    JavaRDD = invoke(pairs, "asJavaRDD")
+    # Reuse the old index to create the PairRDD
+    index = invoke(a@pairRDD, "keys")
+    # Same length
+    pairRDD = invoke(index, "zip", JavaRDD)
+    output = a
+    output@pairRDD = pairRDD
+    output
+}
+
+
+
+# Collects and unserializes from Spark back into local R.
 collect_rddlist = function(rddlist){
     values = invoke(rddlist@pairRDD, "values")
     collected = invoke(values, "collect")
     rawlist = invoke(collected, "toArray")
-    lapply(rawlist, frombytes)
+    lapply(rawlist, unserialize)
 }
 
 
@@ -241,23 +234,29 @@ library(testthat)
 # This gets us cleanClosure
 source('utils.R')
 
-sc <- start_shell(master = "local")
+if(!exists('sc')){
+    sc <- start_shell(master = "local")
+}
 
 x = list(1:10, letters, rnorm(10))
 xrdd = rddlist(sc, x)
 
 ############################################################
 
-test_that("round trip serialization", 
-    expect_identical(x, collect_rddlist(xrdd))
-)
+test_that("round trip serialization", {
 
-test_that("simple indexing",
+    collected = collect_rddlist(xrdd)
+    expect_identical(x, collected)
+
+})
+
+test_that("simple indexing", {
     i = 1
     expect_identical(x[[i]], xrdd[[i]])
-)
+})
 
-test_that("zip RDD's",
+test_that("zip RDD's", {
+
     set.seed(37)
     a = list(1:10, rnorm(5), rnorm(3))
     b = list(21:30, rnorm(5), rnorm(3))
@@ -266,20 +265,27 @@ test_that("zip RDD's",
     br = rddlist(sc, b)
 
     zipped = Map(list, a, b)
-    zipped_rdd = zip_rdd(ar, br)
+    zipped_rdd = zip2(ar, br)
 
-    expect_identical(zipped, collect_rddlist(zipped_rdd))
-)
+    zipped_rdd_collected = collect_rddlist(zipped_rdd)
 
-       
+    a_nested = lapply(a, list)
+    b_nested = lapply(b, list)
 
-test_that("lapply",
-    # TODO Come back to this later since mapply is the priority.
+    collect_rddlist(rddlist(sc, a_nested))
+
+    expect_identical(zipped, zipped_rdd_collected)
+
+})
+
+test_that("lapply", {
+
     first5 = function(x) x[1:5]
     fx = lapply(x, first5)
-    fx = lapply(x, first5)
-    #fxrdd = 
-)
+    fxrdd = collect_rddlist(lapply(xrdd, first5))
+
+    expect_identical(fx, fxrdd)
+})
 
 }
 
