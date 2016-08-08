@@ -299,8 +299,9 @@ __packageNames__:
 
 __broadcastVars__: 
 
-__evidence$4__: Don't know what this is, but have been using something
-related to bytes.
+__evidence$4__: Don't know exactly what this does, but it's class
+Array[byte]? I just pass it around after using the static method
+`createRDDFromArray`.
 
 ### Programming model
 

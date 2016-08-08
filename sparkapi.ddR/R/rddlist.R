@@ -12,31 +12,17 @@ setClass("rddlist", slots = list(sc = "spark_connection",
                                  classTag = "spark_jobj"))
 
 
-rddlist = function(sc, data, nparts=NULL){
+rddlist = function(sc, data){
 
     if(class(data) == "rddlist"){
         return(data)
     }
 
     if(!is.list(data)){
-        data = list(data)
+        stop("data should be a list")
     }
 
-    Rlist = data
-
-    n = length(Rlist)
-    if(is.null(nparts)) nparts = n
-    if(nparts > n) stop("Use a smaller number of partitions.")
-
-    # Strategy is to have about the same number of list elements in each
-    # element of the RDD. This makes sense if the list elements are roughly the
-    # same size.
-    part_index = sort(rep(seq(nparts), length.out = n))
-
-    parts = split(Rlist, part_index)
-
-    # A list of serialized parts
-    serial_parts = lapply(parts, serialize, connection = NULL)
+    serial_parts = lapply(data, serialize, connection = NULL)
 
     # An RDD of the serialized R parts
     # This is class org.apache.spark.api.java.JavaRDD
@@ -218,45 +204,82 @@ mapply_rdd_list = function(func, ..., MoreArgs = list(),
 }
 
 
+frombytes = function(bytes){
+    data = unserialize(bytes)
+    if( length(data) != 1 ){
+        stop("This function does not support nested data")
+    }
+    data[[1]]
+}
+
+
 setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
 function(x, i, j){
-    javaindex = i - 1L
+    javaindex = as.integer(i - 1L)
     jlist = invoke(x@pairRDD, "lookup", javaindex)
-    convertJListToRList(jlist, flatten=TRUE)
+    bytes = invoke(collected, "toArray")
+    frombytes(bytes)
+    #browser()
 })
 
 
-# Define it this way for the moment so it doesn't conflict with
-# ddR::collect
-# Convert the distributed list to a local list
+# Now relying on sparkapi to do the translation
 collect_rddlist = function(rddlist){
     values = invoke(rddlist@pairRDD, "values")
     collected = invoke(values, "collect")
-    convertJListToRList(collected, flatten = FALSE)
+    rawlist = invoke(collected, "toArray")
+    lapply(rawlist, frombytes)
 }
 
 
 if(TRUE){
-    # Tests - could formalize these
+# Basic tests for rddlist
 
-    # This gets us cleanClosure and convertJListToRList
-    source('utils.R')
+library(sparkapi)
+library(testthat)
 
-    # Testing
-    library(sparkapi)
-    FUN = function(x) x[1:5]
+# This gets us cleanClosure
+source('utils.R')
 
-    # local R way
-    x = list(1:10, letters, rnorm(10))
-    fx = lapply(x, FUN)
-    fx[[2]]
+sc <- start_shell(master = "local")
 
-    # Spark RDD way
-    sc <- start_shell(master = "local")
+x = list(1:10, letters, rnorm(10))
+xrdd = rddlist(sc, x)
 
-    xrdd = rddlist(sc, x, nparts = 2L)
+############################################################
 
-    fxrdd = lapply(xrdd, FUN)
+test_that("round trip serialization", 
+    expect_identical(x, collect_rddlist(xrdd))
+)
+
+test_that("simple indexing",
+    i = 1
+    expect_identical(x[[i]], xrdd[[i]])
+)
+
+test_that("zip RDD's",
+    set.seed(37)
+    a = list(1:10, rnorm(5), rnorm(3))
+    b = list(21:30, rnorm(5), rnorm(3))
+
+    ar = rddlist(sc, a)
+    br = rddlist(sc, b)
+
+    zipped = Map(list, a, b)
+    zipped_rdd = zip_rdd(ar, br)
+
+    expect_identical(zipped, collect_rddlist(zipped_rdd))
+)
+
+       
+
+test_that("lapply",
+    # TODO Come back to this later since mapply is the priority.
+    first5 = function(x) x[1:5]
+    fx = lapply(x, first5)
+    fx = lapply(x, first5)
+    #fxrdd = 
+)
 
 }
 
