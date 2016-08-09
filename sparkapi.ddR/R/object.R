@@ -41,9 +41,7 @@ function(x, index, ...) {
 #' @export
 setMethod("do_collect", signature("ddR_RDD", "integer"),
 function(x, parts) {
-
-    # Placeholder
-    NULL
+    x@RDD[[parts]]
 })
 
 setMethod("combine", signature(driver = "ddR_RDD", items = "list"),

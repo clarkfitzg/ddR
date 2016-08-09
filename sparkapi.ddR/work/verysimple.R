@@ -1,3 +1,4 @@
+library(testthat)
 # Starting with the simplest possible things
 
 library(sparkapi.ddR)
@@ -12,13 +13,11 @@ useBackend(Spark)
 
 #library(ddR)
 
-# This call is necessary to set up all the optional parameters for the
-# backend. Because real systems won't always use master = 'local'
-
 options(error = recover)
 
 a = dlist(1:10)
+b = collect(a)
+# So we need to nest
+expect_equal(list(1:10), b)
 
-#b = collect(a)
-#
-#a2 = dlist(1:10, letters, runif(10))
+a2 = dlist(1:10, letters, runif(10))
