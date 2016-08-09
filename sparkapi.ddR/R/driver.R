@@ -63,7 +63,6 @@ function(driver, func, ..., MoreArgs = list(),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
 
     dots = list(...)
-    browser()
     rdds = lapply(dots, rddlist, sc = sparkapi.ddR.env$sc)
     mapply_args = c(list(func), rdds)
     output_rdd = do.call(mapply_rdd, mapply_args)
@@ -75,8 +74,8 @@ function(driver, func, ..., MoreArgs = list(),
     # like an rddlist
     if(output.type == "dlist"){
         dims = output_length
-        psizes = matrix(rep(1, output_length), ncol=1)
-        nparts = c(output_length, 1)
+        psizes = matrix(rep(1L, output_length), ncol=1L)
+        nparts = c(output_length, 1L)
     }
 
     new("ddR_RDD", RDD = output_rdd, nparts = nparts, psize = psizes, dim = dims, 

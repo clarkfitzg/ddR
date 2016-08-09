@@ -205,7 +205,8 @@ mapply_rdd = function(FUN, ...){
 
 
 length_rdd = function(rdd){
-    invoke(rdd@pairRDD, "count")    
+    # sparkapi maps Java long -> double
+    as.integer(invoke(rdd@pairRDD, "count"))
 }
 
 
@@ -302,7 +303,8 @@ test_that("mapply", {
 
 test_that("length", {
 
-    expect_equal(length(x), length_rdd(xrdd))
+    expect_identical(length(x), length_rdd(xrdd),
+        info = "This needs to be an integer")
 
 })
 

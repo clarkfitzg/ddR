@@ -15,10 +15,10 @@ useBackend(Spark)
 # This call is necessary to set up all the optional parameters for the
 # backend. Because real systems won't always use master = 'local'
 
-#debugonce(dlist)
+options(error = recover)
 
 a = dlist(1:10)
 
-b = collect(a)
-
-a2 = dlist(1:10, letters, runif(10))
+#b = collect(a)
+#
+#a2 = dlist(1:10, letters, runif(10))
