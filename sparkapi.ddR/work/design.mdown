@@ -39,6 +39,17 @@ __Cons__
   possible to extend this to store numeric arrays.
 
 
+## General Case
+
+If some backend can store and create general objects and provide methods
+`[[` and a distributed `mapply` (`lapply` being a special case) then it
+should be enough for ddR to build a backend. Why not make this explicit and
+write ddR to build directly from these methods?
+
+What I don't understand is where the boundaries are between what ddR does
+and what the backend should be doing ie. lots of compatibility checks on
+the parts in the backend for the parallel version. Those checks are general
+and should happen for all the backends if they're important.
 
 ## Dependencies
 
@@ -193,7 +204,15 @@ An object specific to the backend, with the nparts and psize fields filled.
 There is only one call to `do dmapply` inside `dmapply`. `dmapply`
 basically just does bookkeeping like dimension checking.
 
-Use the parallel backend as the reference implementation:
+Then the whole backend is mostly expressed in one complicated function:
+`do_dmapply`. This has the advantage of fitting everything into one
+relatively simple programming model, but the disadvantage is this function must then handle
+__everything__, which makes it unwieldy. I expect that there will be
+significant overhead each time this runs in Spark. But I see no way to get
+around it.
+
+It's also not clear exactly what this function should be doing. I guess it
+just has to do everything!
 
 ```
 

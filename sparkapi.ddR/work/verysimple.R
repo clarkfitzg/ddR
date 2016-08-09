@@ -17,7 +17,13 @@ options(error = recover)
 
 a = dlist(1:10)
 b = collect(a)
+
 # So we need to nest
 expect_equal(list(1:10), b)
 
 a2 = dlist(1:10, letters, runif(10))
+
+#debugonce(collect)
+b2 = collect(a2)
+
+do_collect(a2, 1L)

@@ -49,11 +49,30 @@ setMethod("init", "SparkddR", function(x, ...) {
     nexecutors
 })
 
+
 #' @export
 setMethod("shutdown", "SparkddR", function(x) {
     message("Stopping the Spark shell...")
     stop_shell(Spark.ddR.env$sc)
 })
+
+
+Rlist_to_dlist = function(Rlist, nparts){
+
+    # Strategy is to have about the same number of list elements in each
+    # element of the RDD. This makes sense if the list elements are roughly
+    # the same size.
+    part_index = sort(rep(seq(nparts), length.out = length(Rlist)))
+
+    parts = split(Rlist, part_index)
+    partlist = lapply(parts, list)
+
+    rdd = rddlist(sparkapi.ddR.env$sc, partlist)
+
+    new("ddR_RDD", RDD = rdd, nparts = nparts, psize = psizes, dim = dims, 
+        partitions = 1:prod(nparts))
+
+}
 
 #' @export
 setMethod("do_dmapply",
@@ -61,6 +80,18 @@ setMethod("do_dmapply",
 function(driver, func, ..., MoreArgs = list(),
     output.type = c("dlist", "dframe", "darray", "sparse_darray"),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
+
+    # Edward's steps
+    # ====================
+    ## 1: Convert all non-distributed object inputs into RDDs 
+    ## 2: Repartition all distributed RDD inputs to have the same number of
+    ##    partitions as the output
+    ## 3: Zip up all inputs into one RDD
+    ## 4: Insert wrapper functions, list-of-parts conversion
+    ## 5: Run lapplyWithPartitions
+    ## 6: Collect and compute psizes
+    ## 7: Create new ddR_RDD object
+
 
     dots = list(...)
     rdds = lapply(dots, rddlist, sc = sparkapi.ddR.env$sc)
