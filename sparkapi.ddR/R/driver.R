@@ -63,18 +63,23 @@ function(driver, func, ..., MoreArgs = list(),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){
 
     dots = list(...)
+    browser()
+    rdds = lapply(dots, rddlist, sc = sparkapi.ddR.env$sc)
+    mapply_args = c(list(func), rdds)
+    output_rdd = do.call(mapply_rdd, mapply_args)
 
-    # Rely on the initialize methods of rddlist to normalize this
-    inRDD = new("rddlist", sc = sparkapi.ddR.env$sc, ..., nparts = nparts)
+    output_length = length_rdd(output_rdd)
 
-    # mapply_rdd_list 
-    output.RDD = mapply_rdd_list(func, inRDD, MoreArgs = MoreArgs,
-                output.type = output.type, nparts = nparts,
-                combine = combine, cache = CACHE_DEFAULT)
+    # TODO: temporarily hardcoding all this in to get simple thing working.
+    # This assumes a list with the same number of partitions as it's length,
+    # like an rddlist
+    if(output.type == "dlist"){
+        dims = output_length
+        psizes = matrix(rep(1, output_length), ncol=1)
+        nparts = c(output_length, 1)
+    }
 
-    ## Last step: Create new ddR_RDD object
-    
-    new("ddR_RDD", RDD = output.RDD, nparts = nparts,
-        psize = psizes, dim = dims, partitions = 1:prod(nparts))
+    new("ddR_RDD", RDD = output_rdd, nparts = nparts, psize = psizes, dim = dims, 
+        partitions = 1:prod(nparts))
 
 })

@@ -27,7 +27,7 @@ setMethod("initialize", "ddR_RDD", function(.Object, ...) {
 setMethod("get_parts", signature("ddR_RDD", "missing"), function(x, ...) {
 
     # Placeholder
-    1:10
+    NULL
 })
 
 #' @export
@@ -35,7 +35,7 @@ setMethod("get_parts", signature("ddR_RDD", "integer"),
 function(x, index, ...) {
 
     # Placeholder
-    1:10
+    NULL
 })
 
 #' @export
@@ -43,7 +43,7 @@ setMethod("do_collect", signature("ddR_RDD", "integer"),
 function(x, parts) {
 
     # Placeholder
-    1:10
+    NULL
 })
 
 setMethod("combine", signature(driver = "ddR_RDD", items = "list"),
@@ -53,5 +53,5 @@ function(driver, items) {
         #psize = psizes)
 
     # Placeholder
-    1:10
+    NULL
 })
