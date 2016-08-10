@@ -28,35 +28,46 @@ reasonable lower bound for performance we can check:
 
 Following [this
 example](http://stackoverflow.com/questions/21687514/r-count-function-calls)
-we can use `<<-` and R's scoping rules to get the correct
-count for each expression, provided this doesn't run in parallel.
+use a global count. This should be fine as long as it runs sequentially.
 
 ```
 
 library(ddR)
 
-trace(do_dmapply, tracer = function() count <<- count + 1,
-      print = FALSE)
+count = 0L
+
+tracer = function(){
+    assign("count", count + 1L, .GlobalEnv)
+}
+
+trace(do_dmapply, tracer = tracer, print = FALSE)
 
 count_dmapply = function(code_text){
-    count <<- 0
-    eval(parse(text = code_text))
-    count
+    assign("count", 0L, .GlobalEnv)
+    eval(parse(text = code_text), envir = .GlobalEnv)
+    get("count", .GlobalEnv)
 }
+
+count_all = function(codevec){
+    out = data.frame(code = codevec, stringsAsFactors = FALSE)
+    out$calls = sapply(codevec, count_dmapply)
+    out
+}
+
 
 ```
 
 Initializing simple objects:
+
 ```
 
-initializing = data.frame(code = c(
+init_ct = count_all(c(
     "dlist(1:10, letters, runif(10))"
-    , "dlist(as.dframe(iris))"
-    , "dlist(as.dframe(iris), psize=c(5, 1))"
+    , "as.dframe(iris)"
+    , "as.dframe(iris, psize=c(5, 1))"
 ))
 
-initializing$calls = sapply(initializing$code, count_dmapply)
-
+init_ct
 
 ```
 
