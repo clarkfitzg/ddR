@@ -10,10 +10,11 @@ The ddR package description states that it:
 This seems like a fine goal. But how to achieve it? It seems that the
 easiest way would be if the user didn't have to think about the structures
 being distributed- if they could just write programs as if they were in local R.
-For this to happen the distributed object needs to behave like a local object when possible, which
-means it needs to 
-have as many of the methods for lists, dataframes, and matrices as
-possible.
+For this to happen the distributed object needs to behave like a local
+object when possible, which means it needs to have as many of the methods
+for lists, dataframes, and matrices as possible.
+
+So this makes me think classes and OO programming are important.
 
 # Spark 
 
