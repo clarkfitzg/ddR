@@ -34,8 +34,8 @@ use a global count. This should be fine as long as it runs sequentially.
 
 library(ddR)
 
-#count_do_dmapply = 0L
-#count_do_collect = 0L
+count_do_dmapply = 0L
+count_do_collect = 0L
 
 plusone = function(counter_name){
     count = get(counter_name, .GlobalEnv)
@@ -75,6 +75,7 @@ a <- matrix(rnorm(1000000), nrow=1000)
 
 init_code = c("dl <- dlist(1:10, letters, runif(10))"
     , "df <- as.dframe(iris)"
+    , "df2 <- as.dframe(iris, psize=c(5, 2))"
     , "dfnum <- as.dframe(iris[, 1:4], psize=c(5, 2))"
     , "da <- as.darray(a, psize = c(100, 100))"
     )
@@ -114,10 +115,94 @@ Ah, dlists, darrays, and dframes are all the same class. But how does OO program
 
 ```
 
-ddR_funs = count_all(c("da[1:300, 357:498]"
-    , "colMeans(da)"
+ddR_funs = count_all(c("collect(df)"
+    , "collect(da)"
+    , "collect(dl)"
+    , "repartition(df, df2)"
+    , "dlapply(dl, head)"
 ))
 
+ddR_funs
 
+```
+
+So it seems that most things in the base library take 1 or 2 calls. This
+should not be a problem. How about the algorithms?
+
+### Algorithms
+
+Copying from docs:
+
+```
+
+# The trace is still turned on from before
+count_do_dmapply = 0L
+count_do_collect = 0L
+
+library(glm.ddR)
+nInst = 2 # Change level of parallelism
+useBackend(parallel,executors = nInst)
+ncol = 200
+nrow = 100000
+nrow = as.integer(nrow/nInst)
+coefficients = 10*matrix(rnorm(ncol),nrow = ncol)
+generateGLMFeatures <- function(id, nrow, ncol) {
+    matrix(rnorm(nrow*ncol),nrow = nrow,ncol = ncol)
+}
+generateGLMResponses <- function(features, coefficients) {
+    matrix(features %*% coefficients, ncol = 1)
+}
+x <- dmapply(generateGLMFeatures,id = 1:nInst,
+                MoreArgs = list(nrow = nrow, ncol = ncol),
+        output.type = "darray", 
+        combine = "rbind", nparts = c(nInst,1))
+y <- dmapply(generateGLMResponses,features = parts(x),
+                MoreArgs = list(coefficients = coefficients),
+        output.type = "darray", 
+        combine = "rbind", nparts = c(nInst,1))
+
+training_time <- system.time({model <- dglm(responses = y, predictors = x,
+completeModel = TRUE)})[3]
+cat("training dglm model on distributed data: ", training_time," sec \n")
+prediction_time <- system.time({predictions <- predict(model, x)})[3]
+cat("predicting from dglm model on same distributed data: ", prediction_time," sec \n")
+
+glm_do_dmapply = count_do_dmapply
+glm_do_collect = count_do_collect
+
+```
+
+35 and 13 for this run of GLM.
+
+```
+
+# The trace is still turned on from before
+count_do_dmapply = 0L
+count_do_collect = 0L
+
+library(kmeans.ddR)
+nInst = 2
+useBackend(parallel,executors = nInst)
+ncol = 100
+nrow = 1000000
+nrow = as.integer(nrow/nInst)
+K = 10
+centers = 100*matrix(rnorm(K*ncol),nrow = K)
+generateRFData <- function(id, centers, nrow, ncol) {
+    offsets = matrix(rnorm(nrow*ncol),nrow = nrow,ncol = ncol)
+    cluster_ids = sample.int(nrow(centers),nrow,replace = TRUE)
+    feature_obs = centers[cluster_ids,] + offsets
+    features <- data.frame(cluster_ids, feature_obs)
+}
+features <- dmapply(generateRFData,id = 1:nInst,
+                MoreArgs = list(centers = centers, nrow = nrow, ncol = ncol),
+        output.type = "dframe", 
+        combine = "rbind", nparts = c(nInst,1))
+colnames(features) <- paste("X",1:ncol(features),sep="")
+training_time <- system.time({model <- dkmeans(features,K)})[3]
+cat("training dkmeans model on distributed data: ", training_time,"\n")
+
+glm_do_dmapply = count_do_dmapply
+glm_do_collect = count_do_collect
 
 ```
