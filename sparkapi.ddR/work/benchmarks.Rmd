@@ -1,0 +1,63 @@
+Wed Aug 10 09:19:05 KST 2016
+
+Indrajit:
+
+> We should avoid the situation where you have features beyond SparkR
+> dataframes but people don’t use them due to poor performance. A quick
+> solution is to add a suite of performance unit tests that cover small and
+> medium sized datasets.
+
+I'm pretty worried about performance and usability of this thing. 
+Performance in terms of how long it will take to run, usability in terms of
+how feasible it is to use this on anything other than simulated data.
+Before I proceed further down this path I'm going to do a few benchmarks
+to see if I can get some rough estimates for the bounds on performance.
+
+`do_mapply` is the heart of ddR; everything uses it. Right now my suspicion
+based on casual use
+is that the version of `mapply` I've implemented on Spark is going to be to
+expensive, implying that `do_mapply` will be expensive. Then to get some
+reasonable lower bound for performance we can check:
+
+1) How many calls to `do_mapply` happen in various operations.
+2) How expensive is a single call to `mapply` on Spark (best and worse
+   case).
+
+
+### How many calls to `do_mapply` happen in various operations?
+
+Following [this
+example](http://stackoverflow.com/questions/21687514/r-count-function-calls)
+we can use `<<-` and R's scoping rules to get the correct
+count for each expression, provided this doesn't run in parallel.
+
+```
+
+library(ddR)
+
+trace(do_dmapply, tracer = function() count <<- count + 1,
+      print = FALSE)
+
+count_dmapply = function(code_text){
+    count <<- 0
+    eval(parse(text = code_text))
+    count
+}
+
+```
+
+Initializing simple objects:
+```
+
+initializing = data.frame(code = c(
+    "dlist(1:10, letters, runif(10))"
+    , "dlist(as.dframe(iris))"
+    , "dlist(as.dframe(iris), psize=c(5, 1))"
+))
+
+initializing$calls = sapply(initializing$code, count_dmapply)
+
+
+```
+
+
