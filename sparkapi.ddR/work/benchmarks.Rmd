@@ -34,41 +34,66 @@ use a global count. This should be fine as long as it runs sequentially.
 
 library(ddR)
 
-count = 0L
+#count_do_dmapply = 0L
+#count_do_collect = 0L
 
-tracer = function(){
-    assign("count", count + 1L, .GlobalEnv)
+plusone = function(counter_name){
+    count = get(counter_name, .GlobalEnv)
+    count = count + 1L
+    assign(counter_name, count, .GlobalEnv)
 }
 
-trace(do_dmapply, tracer = tracer, print = FALSE)
+trace(do_dmapply, tracer = function() plusone("count_do_dmapply")
+      , print = FALSE)
+trace(do_collect, tracer = function() plusone("count_do_collect")
+      , print = FALSE)
 
-count_dmapply = function(code_text){
-    assign("count", 0L, .GlobalEnv)
+counter = function(code_text){
+    assign("count_do_dmapply", 0L, .GlobalEnv)
+    assign("count_do_collect", 0L, .GlobalEnv)
     eval(parse(text = code_text), envir = .GlobalEnv)
-    get("count", .GlobalEnv)
+    data.frame(code = code_text
+               , do_dmapply = get("count_do_dmapply", .GlobalEnv)
+               , do_collect = get("count_do_collect", .GlobalEnv)
+               , stringsAsFactors = FALSE
+               )
 }
 
 count_all = function(codevec){
-    out = data.frame(code = codevec, stringsAsFactors = FALSE)
-    out$calls = sapply(codevec, count_dmapply)
-    out
+    do.call(rbind, lapply(codevec, counter))
 }
 
 
 ```
 
-Initializing simple objects:
+Initializing objects:
 
 ```
 
-init_ct = count_all(c(
-    "dlist(1:10, letters, runif(10))"
-    , "as.dframe(iris)"
-    , "as.dframe(iris, psize=c(5, 1))"
+# A million random numbers
+a <- matrix(rnorm(1000000), nrow=1000)
+
+init_code = c("dl <- dlist(1:10, letters, runif(10))"
+    , "df <- as.dframe(iris)"
+    , "dfnum <- as.dframe(iris[, 1:4], psize=c(5, 2))"
+    , "da <- as.darray(a, psize = c(100, 100))"
+    )
+
+counter(init_code[1])
+
+init_counts = count_all(init_code)
+
+```
+
+Methods:
+
+```
+
+df_ops = count_all(c("df[1:5, 1:2]"
+    , "df$Species"
+    , "colMeans(dfnum)"
 ))
 
-init_ct
+df_ops
 
 ```
-
-
