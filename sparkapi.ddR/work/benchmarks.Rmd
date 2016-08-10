@@ -66,7 +66,7 @@ count_all = function(codevec){
 
 ```
 
-Initializing objects:
+### Initializing objects
 
 ```
 
@@ -85,15 +85,39 @@ init_counts = count_all(init_code)
 
 ```
 
-Methods:
+### Methods
 
 ```
 
-df_ops = count_all(c("df[1:5, 1:2]"
+# Dataframes
+methods(class = class(df))
+
+ops = count_all(c("df[1:5, 1:2]"
     , "df$Species"
     , "colMeans(dfnum)"
+    , "rowSums(dfnum)"
+    , "mean(dfnum)"
+    , "da[1:300, 357:498]"
+    , "colMeans(da)"
+    , "rowSums(da)"
+    , "mean(da)"
+    #, "rbind(da, da)" # Fails, but for a different reason?
 ))
 
-df_ops
+ops
+
+```
+
+Ah, dlists, darrays, and dframes are all the same class. But how does OO programming work then?
+
+### Functions
+
+```
+
+ddR_funs = count_all(c("da[1:300, 357:498]"
+    , "colMeans(da)"
+))
+
+
 
 ```
