@@ -3,14 +3,16 @@ library(kmeans.ddR)
 
 set.seed(319804)
 
-# Define level of parallelism
-N_EXEC = 2 
-
-# Set up data size
-NCOL = 8 # Must be at least 2
-NROW = 2e5L
-K = 6
-ITERMAX = 300
+# Define level of parallelism:
+N_EXEC <- 2 
+# Dimension of the data should be at least 2:
+NCOL <- 4L
+# Number of observations:
+NROW <- 2e5L
+# Number of clusters expected:
+K <- 3L
+# Maximum number of iterations:
+ITERMAX <- 300
 
 # Set the backend
 useBackend(parallel, executors = N_EXEC)
@@ -21,12 +23,12 @@ useBackend(parallel, executors = N_EXEC)
 
 # The true centers for the data generating process
 # Easy to check correctness if we know where these centers should be
-centers = cbind(10 * seq.int(K), matrix(0, nrow = K, ncol = NCOL - 1))
-dnumrows = as.integer(NROW/N_EXEC)
+centers <- cbind(10 * seq.int(K), matrix(0, nrow = K, ncol = NCOL - 1))
+dnumrows <- as.integer(NROW/N_EXEC)
 
 # This function will run on the distributed backend.
-# Parallelism is generally easier if this is a "pure" function,
-# meaning it doesn't depend on global state.
+# Parallelism is generally easier if this is a 'pure' function,
+# meaning it doesn't depend on or modify global state.
 generateKMeansData <- function(id, centers, nrow, ncol, k) {
     offsets = matrix(rnorm(nrow * ncol), nrow = nrow, ncol = ncol)
     cluster_ids = sample.int(k, size = nrow, replace = TRUE)
@@ -51,7 +53,7 @@ dtraining_time <- system.time(
 )[3]
 cat(dtraining_time, "\n")
 
-# Collecting makes the distributed object into a local object
+# Collecting pulls the distributed object from the backend into a local object
 feature <- collect(dfeature)
 
 cat("training kmeans model on centralized data\n")
@@ -61,18 +63,32 @@ training_time <- system.time(
 cat(training_time, "\n")
 
 # Compare results
-sortfirstcol = function(m) m[order(m[, 1]), ]
+sortfirstcol <- function(m) m[order(m[, 1]), ]
 
 # A list of three matrices with the coordinates of the cluster centers
 # represented as rows
-allcenters = lapply(list(true = centers, 
+allcenters <- lapply(list(true = centers, 
                          distributed = dmodel$centers,
                          centralized = model$centers),
                     sortfirstcol)
 
 print(allcenters)
 
-# Shutdown the backend because distributed computation is finished
-shutdown(parallel)
+# Plotting the results
+dim1 <- 1
+dim2 <- 2
+plot(allcenters$true[, c(dim1, dim2)],
+     xlim = range(sapply(allcenters, function(x) range(x[, dim1]))),
+     ylim = range(sapply(allcenters, function(x) range(x[, dim2]))),
+     main = "Two dimensions of the discovered centers",
+     xlab = "First dimension", ylab = "Second dimension"
+)
+points(allcenters$distributed, pch = 2)
+points(allcenters$centralized, pch = 3)
+legend("bottomright", legend = c("true", "distributed", "centralized"),
+        pch = 1:3)
 
-plot(
+# If successful the points found by both versions of kmeans should be close
+# to the true centers. Note the scale of the axes may be deceptive here.
+
+shutdown(parallel)
