@@ -7,3 +7,8 @@
 
 # Spark log files
 *.log*
+/dds/GPATH
+/dds/GRTAGS
+/dds/GTAGS
+/dds/R/.Rhistory
+ddR.pdf

@@ -1,91 +1,97 @@
 ###################################################################
 # Copyright 2015 Hewlett-Packard Development Company, L.P.
-# This program is free software; you can redistribute it 
-# and/or modify it under the terms of the GNU General Public 
+# This program is free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public
 # License, version 2 as published by the Free Software Foundation.
 
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 
-# You should have received a copy of the GNU General Public License 
-# along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place, Suite 330, 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330,
 # Boston, MA 02111-1307 USA.
 ###################################################################
 
-setClass("ParallelddR", contains="ddRDriver")
+#' @include ddR.R
+NULL
 
-#' The default parallel driver
-#' @examples
-#' \dontrun{
-#' useBackend(parallel,executors=4)
-#' }
-#' @export 
-# Exported Driver
-parallel <- new("ParallelddR",DListClass = "ParallelObj",DFrameClass = "ParallelObj",DArrayClass = "ParallelObj",backendName = "parallel")
-# Driver for the parallel package. Parallel is also the default backend.
-ddR.env$driver <- parallel
+setOldClass("SOCKcluster")
+setOldClass("cluster")
+setClassUnion("parallelCluster", c("SOCKcluster", "cluster"))
 
-# Clark: Why does all this happen here rather than in the `init` method?
-#Set environment and default number of cores to total no. of cores (but one on windows)
-#Note that DetectCores() can return NA. If it's windows we use SNOW by default
-parallel.ddR.env <- new.env(emptyenv())
-parallel.ddR.env$cores <- parallel::detectCores(all.tests=TRUE, logical=FALSE) 
-parallel.ddR.env$clusterType <- "FORK"
-parallel.ddR.env$snowCluster <- NULL
-if(is.na(parallel.ddR.env$cores)){ parallel.ddR.env$cores <- 1 }
-if((.Platform$OS.type == "windows")) {parallel.ddR.env$clusterType <- "PSOCK"}
+#' Class for parallel driver
+#'
+#' @slot type character "FORK" or "PSOCK"
+#' @slot cluster As returned from \link[parallel]{makeCluster}
+setClass("parallel.ddR", contains = "ddRDriver",
+        slots = c(type = "character", cluster = "parallelCluster"))
 
-#Function to initialize SNOW on windows
-initializeSnowOnWindows<-function(){
-  cl <- parallel::makeCluster(getOption("cl.cores", parallel.ddR.env$cores))
-  parallel.ddR.env$snowCluster <- cl
-  parallel.ddR.env$clusterType <- "PSOCK"
+windows <- (.Platform$OS.type == "windows")
+
+#' Initialize the no. of cores in parallel backend
+#'
+#' The FORK method of parallel works only on UNIX environments. The "PSOCK"
+#' method requires SNOW but works on all OSes.
+#'
+#' @param executors Number of cores to run with, or "all" to use all
+#'      available cores
+#' @param type If "FORK", will use UNIX fork() method. If "PSOCK", will use SNOW method.
+#' @param ... Additional arguments to \link[parallel]{makeCluster}
+#' @return Object of class \code{\linkS4class{parallel.ddR}} representing a running parallel
+#'      cluster
+init_parallel <- function(executors = "all",
+         type = ifelse(windows, "PSOCK", "FORK"), ...){
+
+    # Normalize executors to positive integer
+    if(executors == "all"){
+        executors <- parallel::detectCores(logical=FALSE)
+    }
+    if(is.null(executors) || is.na(executors) || executors < 1){
+        message("Executors should be a positive integer. Defaulting to 1.")
+        executors <- 1L
+    }
+    executors <- as.integer(executors)
+
+    # Handle cluster types
+    if(!(type %in% c("PSOCK", "FORK"))){
+        # Safer to stop, but this facilitates experimentation
+        warning("Only PSOCK and FORK are supported cluster types for the parallel driver. Proceed at your own risk.")
+    }
+    if(windows && type == "FORK"){
+        warning("type = 'FORK' is unsupported on Windows. Defaulting to type = 'PSOCK'")
+        type <- "PSOCK"
+    }
+
+    cluster <- parallel::makeCluster(executors, type, ...)
+
+    new("parallel.ddR",
+        DListClass = "ParallelObj",
+        DFrameClass = "ParallelObj",
+        DArrayClass = "ParallelObj",
+        name = "parallel",
+        executors = executors,
+        type = type,
+        cluster = cluster
+        )
 }
 
-# Initialize the no. of cores in parallel backend
-# By default we use the FORK method of parallel which works only on UNIx environments. The "PSOCK" method requires SNOW but works on all OSes.
-#' @param executors Number of cores to run with.
-#' @param type If "FORK", will use UNIX fork() method. If "PSOCK", will use SNOW method.
-#' @describeIn init Initialization for parallel
-setMethod("init","ParallelddR",
-  function(x, executors=NULL, type= "FORK", ...){
-    if(!is.null(executors)){
-    if(!((is.numeric(executors) || is.integer(executors)) && floor(executors)==executors && executors>=0)) stop("Argument 'executors' should be a non-negative integral value")
-        parallel.ddR.env$cores <- executors
-  }
 
-  #On windows parallel can use only a single core. We need to use socket based SNOW for more number of cores.
-  if((.Platform$OS.type == "windows" &&  parallel.ddR.env$cores!=1 ) || type =="PSOCK") {
-     message("Using socket based parallel (SNOW) backend.")
-     initializeSnowOnWindows()
-  } else{
-     if(.Platform$OS.type == "windows" && parallel.ddR.env$cores>1) { stop("On windows, multi-process execution with FORK is not supported for more than one core. Use backend with type = 'PSOCK'")}
-     parallel.ddR.env$clusterType <- "FORK"
-  }
-  return (parallel.ddR.env$cores)
-})
+register_driver(name = "parallel", initfunc = init_parallel)
+
 
 #' @describeIn shutdown Shutdown for parallel
-setMethod("shutdown","ParallelddR",
-  function(x) {
-    if(!is.null(parallel.ddR.env$snowCluster) && parallel.ddR.env$clusterType == "PSOCK") {
-        message("Switching out of using 'parallel (SNOW)'. Shutting down SNOW cluster...")
-        parallel::stopCluster(parallel.ddR.env$snowCluster)
-        parallel.ddR.env$clusterType <- "FORK"
-	parallel.ddR.env$snowCluster <- NULL
-    }
+setMethod("shutdown","parallel.ddR",
+function(x) {
+    parallel::stopCluster(x@cluster)
 })
 
-#This function calls mclapply internally when using parallel with "FORK" or 
-#snow's staticClusterApply when used with "PSOCK" option. 
-#On windows only "PSOCK" provides true parallelism.
 
 #' @rdname do_dmapply
 setMethod("do_dmapply",
-          signature(driver="ParallelddR", func="function"), 
+          signature(driver="parallel.ddR", func="function"),
           function(driver, func, ..., MoreArgs = list(),
                    output.type =
                        c("dlist", "dframe", "darray", "sparse_darray"),
@@ -114,14 +120,14 @@ setMethod("do_dmapply",
     }else{
       #There are two cases for a list (1) parts(dobj) or (2) list of parts(dobj)
 
-      if(is(dots[[num]],"list") && any(rapply(dots[[num]], function(x) is(x,"ParallelObj"),how="unlist"))){    
+      if(is(dots[[num]],"list") && any(rapply(dots[[num]], function(x) is(x,"ParallelObj"),how="unlist"))){
         tmp <- rapply(dots[[num]],function(argument){
 	    	      if(is(argument,"DObject"))
             	         return(argument@pObj[argument@splits])
 	              else return(argument)}, how="replace")
 
-       #(iR): This is bit of a hack. rapply increases the depth of the list, but at the level that the replacement occured. 
-       #Simple ulist() does not work. If this was just parts(A,..), we can call unlist. If this is a list of parts, then 
+       #(iR): This is bit of a hack. rapply increases the depth of the list, but at the level that the replacement occured.
+       #Simple ulist() does not work. If this was just parts(A,..), we can call unlist. If this is a list of parts, then
        #we unwrap the second layer of the list. Unwrapping the second layer is incorrect if parts(A) was embedded deeper than that.
        if(is(dots[[num]][[1]], "DObject")){
        	  dots[[num]] <- unlist(tmp, recursive=FALSE)
@@ -144,24 +150,15 @@ setMethod("do_dmapply",
       	   MoreArgs[[index]] <- collect(MoreArgs[[index]])
    }
 
-
-   answer <- NULL
-   #Now iterate in parallel
-   if(parallel.ddR.env$clusterType == "PSOCK"){
-    # We are using the SNOW backend, i.e., clusterMap. Check code with print(clusterMap)
-    if(is.null(parallel.ddR.env$snowCluster)){initializeSnowOnWindows()}
-
-    #Wrap the input arguments and use do.call()
-    dots <- c(list(cl = parallel.ddR.env$snowCluster, fun = func, MoreArgs = MoreArgs, RECYCLE = FALSE, SIMPLIFY = FALSE), dots)
-    answer <- do.call(parallel::clusterMap, dots)
-
-   } else {
-   #Wrap inputs in a list to call mcmapply via do.call()
-
-   dots <- c(list(FUN = func, MoreArgs = MoreArgs, SIMPLIFY = FALSE, mc.cores = parallel.ddR.env$cores), dots)
-   answer <- do.call(parallel::mcmapply, dots)
-
-   }
+    answer <- NULL
+    # Now iterate in parallel
+    # Wrap the input arguments and use do.call()
+    allargs <- c(list(cl = driver@cluster,
+                      fun = func,
+                      MoreArgs = MoreArgs,
+                      RECYCLE = FALSE, SIMPLIFY = FALSE),
+                 dots)
+    answer <- do.call(parallel::clusterMap, allargs)
 
    #Perform a cheap check on whether there was an error since man pages say that an error on one core will result in error messages on all. TODO: Sometimes the class of the error is "character"
    if(inherits(answer[[1]], "try-error")) {stop(answer[[1]])}
@@ -187,7 +184,7 @@ setMethod("do_dmapply",
    combineFunc <- list
 
    if(output.type !="dlist"){
-       #Setup the partition types that we will use later to check if partitions conform to output.type.   
+       #Setup the partition types that we will use later to check if partitions conform to output.type.
        if(output.type == "darray") ptype<-"matrix"
        if(output.type == "dframe") ptype<-"data.frame"
        if(output.type == "sparse_darray") ptype<-c("dsCMatrix", "dgCMatrix")
@@ -229,13 +226,13 @@ setMethod("do_dmapply",
 
    dims<-NULL
 
-   #Check if partions conform and can be stitched together. 
+   #Check if partions conform and can be stitched together.
    #Check partitions in each logical row have the same number of rows/height. Similary for columns
    rowseq<-seq(1, totalParts, by=nparts[2])
    for (index in rowseq){
 	     if(any(psizes[index:(index+nparts[2]-1),1]!=psizes[index,1])) stop("Adjacent partitions have different number of rows, should be ", psizes[index,1])
    }
-	 
+
    for (index in 1:nparts[2]){
 	    if(any(psizes[(rowseq+(index-1)),2]!=psizes[index,2])) stop("Adjacent partitions have different number of columns, should be ", psizes[index,2])
    }
@@ -253,4 +250,3 @@ setMethod("do_dmapply",
 
    new("ParallelObj",pObj = outputObj, splits = 1:length(outputObj), psize = psizes, dim = as.integer(dims), nparts = nparts)
 })
-

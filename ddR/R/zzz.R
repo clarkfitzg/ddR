@@ -16,5 +16,11 @@
 ###################################################################
 
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage("\nWelcome to 'ddR' (Distributed Data-structures in R)!\nFor more information, visit: https://github.com/vertica/ddR")
+    packageStartupMessage("\nWelcome to 'ddR' (Distributed Data-structures in R)!\nFor more information, visit: https://github.com/vertica/ddR")
+
+    # This should run to initialize the default driver.
+    # Maybe there's a better place to put this?
+    if(is.null(ddR.env$driver)){
+        useBackend()
+    }
 }
