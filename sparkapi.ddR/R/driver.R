@@ -1,6 +1,6 @@
-################################################################### Copyright 2015 Hewlett-Packard Development Company, L.P.  This program is free
-################################################################### software; you can redistribute it and/or modify it under the terms of the GNU
-################################################################### General Public License, version 2 as published by the Free Software Foundation.
+# Copyright 2015 Hewlett-Packard Development Company, L.P.  This program is free
+# software; you can redistribute it and/or modify it under the terms of the GNU
+# General Public License, version 2 as published by the Free Software Foundation.
 
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
@@ -11,49 +11,40 @@
 # Place, Suite 330, Boston, MA 02111-1307 USA.
 
 #' @import methods ddR 
-#' @importFrom sparkapi start_shell stop_shell
 
-
+setOldClass("spark_connection")
 
 # Create distributedR ddRDriver
-setClass("SparkddR", contains = "ddRDriver")
+setClass("Spark.ddR", contains = "ddRDriver",
+        slots = c(sc = "spark_connection"))
 
-#' @export 
-# Exported Driver
-Spark <- new("SparkddR", DListClass = "ddR_RDD", DFrameClass = "ddR_RDD",
-    DArrayClass = "ddR_RDD", backendName = "Spark")
 
-# Environmental variables
-sparkapi.ddR.env = new.env(emptyenv())
-# Unsure what this should be doing.
-#ddR.env$driver = Spark
-
-#' @export
-setMethod("init", "SparkddR", function(x, ...) {
+init_spark <- function(master = "local", ...) {
     message("Backend switched to Spark. Initializing the Spark context...")
     
-    dots = list(...)
-    if (is.null(dots[["master"]])){
-        message("Using default value master = 'local'")
-        dots[["master"]] <- "local"
-    }
-
-    sc = start_shell(master = dots[["master"]], ...)
-    sparkapi.ddR.env$sc = sc
+    sc = sparkapi::start_shell(master, ...)
 
     # This is a list with available memory for each executor
     memory_status = invoke(sc$spark_context, "getExecutorMemoryStatus")
     # TODO verify this works. A bit tricky with the various Spark launching
     # options
-    nexecutors = length(memory_status)
-    nexecutors
-})
+    executors = length(memory_status)
+
+    new("Spark.ddR",
+        DListClass = "ddR_RDD",
+        DFrameClass = "ddR_RDD",
+        DArrayClass = "ddR_RDD",
+        name = "spark",
+        executors = executors,
+        sc = sc
+        )
+}
 
 
 #' @export
-setMethod("shutdown", "SparkddR", function(x) {
+setMethod("shutdown", "Spark.ddR", function(x) {
     message("Stopping the Spark shell...")
-    stop_shell(Spark.ddR.env$sc)
+    sparkapi::stop_shell(x@sc)
 })
 
 
@@ -76,7 +67,7 @@ Rlist_to_dlist = function(Rlist, nparts){
 
 #' @export
 setMethod("do_dmapply",
-    signature(driver = "SparkddR", func = "function"),
+    signature(driver = "Spark.ddR", func = "function"),
 function(driver, func, ..., MoreArgs = list(),
     output.type = c("dlist", "dframe", "darray", "sparse_darray"),
     nparts = NULL, combine = c("default", "c", "rbind", "cbind")){

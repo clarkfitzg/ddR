@@ -1,8 +1,10 @@
 library(testthat)
 # Starting with the simplest possible things
 
+library(ddR)
+
 library(sparkapi.ddR)
-useBackend(Spark)
+useBackend("spark")
 
 # A little easier to have these in the global environment for development
 #library(sparkapi)

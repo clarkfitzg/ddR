@@ -23,6 +23,7 @@
 NULL
 
 # Package global variables live in this environment
+#' @export
 ddR.env <- new.env(emptyenv())
 ddR.env$RminorVersion <- R.version$minor
 
@@ -47,6 +48,7 @@ ddR.env$driver <- NULL
 #'      connected to a running backend.
 #'      Driver instances returned from this function should be a
 #'      subclass of \code{\linkS4class{ddRDriver}}
+#' @export
 register_driver <- function(name, initfunc){
     ddR.env$registeredDrivers[[name]] <- initfunc
 }
