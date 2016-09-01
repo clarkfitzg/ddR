@@ -85,7 +85,7 @@ function(driver, func, ..., MoreArgs = list(),
 
 
     dots = list(...)
-    rdds = lapply(dots, rddlist, sc = sparkapi.ddR.env$sc)
+    rdds = lapply(dots, rddlist, sc = driver@sc)
     mapply_args = c(list(func), rdds)
     output_rdd = do.call(mapply_rdd, mapply_args)
 
