@@ -176,9 +176,11 @@ function(driver, func, ..., MoreArgs = list(),
 
 # New code
 # TODO: support MoreArgs
-rdds <- lapply(dots, rddlist, sc = driver@sc)
+listdots = lapply(dots, as.list)
+rdds <- lapply(listdots, rddlist, sc = driver@sc)
 mapply_args <- c(list(func), rdds)
 output_rdd <- do.call(mapply_rdd, mapply_args)
+#browser()
 answer <- collect_rdd(output_rdd)
 
 ############################################################

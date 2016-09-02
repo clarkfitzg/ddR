@@ -1,8 +1,6 @@
 library(testthat)
 # Starting with the simplest possible things
 
-library(ddR)
-
 library(sparkapi.ddR)
 useBackend("spark")
 
@@ -18,6 +16,7 @@ useBackend("spark")
 options(error = recover)
 
 a = dlist(1:10)
+
 b = collect(a)
 
 # So we need to nest

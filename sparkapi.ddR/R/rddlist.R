@@ -18,7 +18,7 @@ setClass("rddlist", slots = list(sc = "spark_connection",
 # A basic R list implemented in Spark.
 # 
 # Each element of the list local R list corresponds to an element of the Spark RDD.
-rddlist = function(sc, data){
+rddlist = function(data, sc){
 
     if(class(data) == "rddlist"){
         return(data)
@@ -211,8 +211,8 @@ length_rdd = function(rdd){
 
 
 # Collects and unserializes from Spark back into local R.
-collect_rdd = function(rdd){
-    values = invoke(rdd@pairRDD, "values")
+collect_rdd = function(rddlist){
+    values = invoke(rddlist@pairRDD, "values")
     collected = invoke(values, "collect")
     rawlist = invoke(collected, "toArray")
     lapply(rawlist, unserialize)
@@ -233,7 +233,7 @@ if(!exists('sc')){
 }
 
 x = list(1:10, letters, rnorm(10))
-xrdd = rddlist(sc, x)
+xrdd = rddlist(x, sc)
 
 ############################################################
 
@@ -255,8 +255,8 @@ test_that("zipping several RDD's", {
     a = list(1:10, rnorm(5), rnorm(3))
     b = list(21:30, rnorm(5), rnorm(3))
 
-    ar = rddlist(sc, a)
-    br = rddlist(sc, b)
+    ar = rddlist(a, sc)
+    br = rddlist(b, sc)
 
     abzip = Map(list, a, b)
     abzip_rdd = zip2(ar, br)
@@ -269,7 +269,7 @@ test_that("zipping several RDD's", {
 
     # Now for 3+
     c = list(101:110, rnorm(5), rnorm(7))
-    cr = rddlist(sc, c)
+    cr = rddlist(c, sc)
 
     abczip = Map(list, a, b, c, a)
     abczip_rdd = zip_rdd(ar, br, cr, ar)
@@ -292,7 +292,7 @@ test_that("lapply", {
 test_that("mapply", {
 
     y = list(21:30, LETTERS, rnorm(10))
-    yrdd = rddlist(sc, y)
+    yrdd = rddlist(y, sc)
    
     xy = mapply(c, x, y)
 
