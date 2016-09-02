@@ -3,4 +3,4 @@
 
 library(testthat)
 
-test_check("Spark.ddR")
+test_check("sparkapi.ddR")
