@@ -56,15 +56,12 @@ rddlist = function(data, sc){
 }
 
 
-setMethod("lapply", signature(X = "rddlist", FUN = "function"),
-function(X, FUN){
-# TODO: support dots
-# function(X, FUN, ...){
+lapply_rdd = function(X, FUN, MoreArgs){
 
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
     FUN_applied = function(partIndex, part) {
-        FUN(part)
+        do.call(FUN, c(list(part), MoreArgs))
     }
     FUN_clean = cleanClosure(FUN_applied)
 
@@ -101,7 +98,7 @@ function(X, FUN){
     output = X
     output@pairRDD = pairRDD
     output
-})
+}
 
 
 setMethod("[[", signature(x = "rddlist", i = "numeric", j = "missing"),
@@ -188,9 +185,9 @@ zip_rdd = function(...){
 
 # A version of mapply that works with rddlists
 # ... should be rddlists
-mapply_rdd = function(FUN, ...){
+mapply_rdd = function(FUN, ..., MoreArgs){
 
-    # TODO: add recycling, Moreargs
+    # TODO: add recycling
 
     FUN = match.fun(FUN)
     zipped = zip_rdd(...)
@@ -200,7 +197,7 @@ mapply_rdd = function(FUN, ...){
         do.call(FUN, zipped_part)
     }
 
-    lapply(zipped, zipFUN)
+    lapply_rdd(zipped, zipFUN, MoreArgs)
 }
 
 
@@ -284,7 +281,7 @@ test_that("lapply", {
 
     first5 = function(x) x[1:5]
     fx = lapply(x, first5)
-    fxrdd = collect_rdd(lapply(xrdd, first5))
+    fxrdd = collect_rdd(lapply_rdd(xrdd, first5))
 
     expect_equal(fx, fxrdd)
 })
