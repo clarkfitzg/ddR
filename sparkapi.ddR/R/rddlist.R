@@ -56,7 +56,7 @@ rddlist = function(data, sc){
 }
 
 
-lapply_rdd = function(X, FUN, MoreArgs){
+lapply_rdd = function(X, FUN, MoreArgs = list()){
 
     # The function should be in a particular form for calling Spark's
     # org.apache.spark.api.r.RRDD class constructor
@@ -167,7 +167,7 @@ zip_rdd = function(...){
     a = args[[1]]
     n = length(args)
 
-    zipped = lapply(a, list)
+    zipped = lapply_rdd(a, list)
 
     if(n == 1L){
         # Easy out for trivial case
@@ -185,7 +185,7 @@ zip_rdd = function(...){
 
 # A version of mapply that works with rddlists
 # ... should be rddlists
-mapply_rdd = function(FUN, ..., MoreArgs){
+mapply_rdd = function(FUN, ..., MoreArgs = list()){
 
     # TODO: add recycling
 
