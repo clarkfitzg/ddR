@@ -17,5 +17,7 @@ Collate:
     'driver.R'
     'rddlist.R'
     'object.R'
+    'pobject.R'
+    'sparklite.R'
     'utils.R'
     'zzz.R'
