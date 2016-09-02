@@ -1,4 +1,5 @@
 # Run it like so to test one individually:
+
 # Rscript test-one.R /Users/clark/dev/ddR/ddR/tests/testthat/test-darray.R
 
 # Seems like they're mostly failing in Spark with message:
@@ -12,7 +13,7 @@ library(sparkapi.ddR)
 
 driver_name = "spark"
 
-useBackend(driver_name)
+dr = useBackend(driver_name)
 
 fname <- commandArgs(trailingOnly = TRUE)
 
