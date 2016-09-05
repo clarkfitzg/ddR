@@ -4,14 +4,14 @@
 \alias{init_parallel}
 \title{Initialize the no. of cores in parallel backend}
 \usage{
-init_parallel(executors = "all", type = ifelse(windows, "PSOCK", "FORK"),
-  ...)
+init_parallel(spec = NULL, type = ifelse(windows, "PSOCK", "FORK"), ...)
 }
 \arguments{
-\item{executors}{Number of cores to run with, or "all" to use all
-available cores}
+\item{spec}{Number of cores to run with, or character vector of
+hostnames for SNOW cluster. If NULL defaults to the number of
+physical cores on machine.}
 
-\item{type}{If "FORK", will use UNIX fork() method. If "PSOCK", will use SNOW method.}
+\item{type}{If "FORK", will use UNIX fork(). If "PSOCK", will use SNOW.}
 
 \item{...}{Additional arguments to \link[parallel]{makeCluster}}
 }
@@ -22,5 +22,21 @@ Object of class \code{\linkS4class{parallel.ddR}} representing a running paralle
 \description{
 The FORK method of parallel works only on UNIX environments. The "PSOCK"
 method requires SNOW but works on all OSes.
+}
+\details{
+This function is a wrapper around \link[parallel]{makeCluster}
+}
+\examples{
+\dontrun{
+# Cluster on 2 cores with default type:
+useBackend("parallel", 2)
+
+# PSOCK cluster on multiple machines (assuming you can ssh user@server1):
+servers <- c("server1", "server2")
+useBackend("parallel", servers, type = "PSOCK")
+
+# MPI cluster (assuming Rmpi is installed)
+useBackend("parallel", type = "MPI")
+}
 }
 
